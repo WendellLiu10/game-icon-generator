@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 游戏图标工坊</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+  <style>
+    :root {
+      --bg-color: #0f111a;
+      --card-bg: rgba(30, 35, 50, 0.6);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-color: #6366f1; /* Indigo 500 */
+      --accent-hover: #4f46e5;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08) 0%, transparent 25%);
+      color: var(--text-primary);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航 */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: rgba(15, 17, 26, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.2rem;
+      letter-spacing: -0.025em;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    /* 主布局 */
+    .main-container {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 32px;
+      padding: 32px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+    }
+
+    /* 通用组件 */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--glass-shadow);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 左侧控制面板 */
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* 标签页切换 */
+    .tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--card-border);
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    /* 表单元素 */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    textarea.input-field {
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.5;
+    }
+
+    select.input-field {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+    }
+
+    /* 上传区域 */
+    .upload-area {
+      border: 2px dashed var(--card-border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .upload-area:hover {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .upload-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-secondary);
+    }
+
+    .upload-preview-img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    /* 按钮 */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-color), #ec4899);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+    }
+
+    /* 右侧展示区域 */
+    .display-area {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* 大图预览 */
+    .preview-canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #ffffff; /* 保持白色背景展示图标 */
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .preview-canvas.empty {
+      background: rgba(0, 0, 0, 0.2);
+      border: 2px dashed var(--card-border);
+    }
+
+    .preview-canvas img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+    
+    .preview-canvas:hover img {
+      /* transform: scale(1.02); */
+    }
+
+    .placeholder-content {
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    /* 加载动画 */
+    .loader {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: var(--accent-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* 切片结果网格 */
+    .sliced-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    
+    /* 响应式调整：移动端改为 3x3，桌面端 1行9列或自动 */
+    @media (min-width: 1200px) {
+      .sliced-grid {
+        grid-template-columns: repeat(9, 1fr);
+      }
+    }
+    @media (max-width: 1199px) {
+      .sliced-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .slice-item {
+      aspect-ratio: 1;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      border: 1px solid transparent;
+    }
+
+    .slice-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border-color: var(--accent-color);
+      z-index: 10;
+    }
+
+    .slice-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .slice-actions {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    
+    .slice-item:hover .slice-actions {
+      opacity: 1;
+    }
+    
+    .icon-btn {
+      background: white;
+      color: black;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .icon-btn:hover {
+      background: #f0f0f0;
+    }
+
+    /* 历史记录条 */
+    .history-bar {
+      margin-top: auto;
+      border-top: 1px solid var(--card-border);
+      padding-top: 24px;
+    }
+    
+    .history-list {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--card-border) transparent;
+    }
+    
+    .history-item {
+      flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+    
+    .history-item:hover {
+      opacity: 1;
+    }
+    
+    .history-item.active {
+      opacity: 1;
+      border-color: var(--accent-color);
+    }
+    
+    .history-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* 状态提示 */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(15, 17, 26, 0.9);
+      backdrop-filter: blur(8px);
+      padding: 12px 24px;
+      border-radius: 50px;
+      border: 1px solid var(--card-border);
+      color: white;
+      font-size: 0.9rem;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .toast.error {
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+
+    /* API Key Modal */
+    dialog {
+      background: #1e2332;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px;
+      color: var(--text-primary);
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    
+    dialog::backdrop {
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+    }
+    
+    .dialog-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    
+    .dialog-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+  </style>
+  <file_path>S:\TetrisJiangHu\trunk\MonopolyTetrisDemo\web\icon-generator\index.html</file_path>
+</head>
+<body>
+  
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🎨</div>
+      AI 游戏图标工坊
+    </div>
+    <div style="display: flex; gap: 12px;">
+      <button id="btnCheckUpdate" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.9rem;">
+        🔄 检查更新
+      </button>
+      <button id="btnSettings" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.9rem;">
+        API Key 设置
+      </button>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    
+    <!-- 左侧控制区 -->
+    <aside class="control-panel">
+      
+      <!-- 生成配置 -->
+      <div class="card">
+        <div class="tabs">
+          <div class="tab active" data-mode="text">文字生成</div>
+          <div class="tab" data-mode="style">风格迁移</div>
+        </div>
+
+        <!-- 风格选择 (通用) -->
+        <div class="form-group">
+          <label class="form-label">视觉风格 (预设)</label>
+          <select id="styleSelect" class="input-field">
+            <option value="game asset style, high quality, detailed">通用游戏资产 (Universal)</option>
+            <option value="Chinese wuxia/xianxia style, ink painting, ethereal">中国武侠/仙侠 (Wuxia)</option>
+            <option value="cyberpunk style, neon lights, high tech, futuristic">赛博朋克 (Cyberpunk)</option>
+            <option value="pixel art style, 8-bit, retro game">像素风 (Pixel Art)</option>
+            <option value="cartoon style, casual game, bright colors, cute">卡通/休闲 (Casual)</option>
+            <option value="dark fantasy style, grim, gothic, detailed">暗黑奇幻 (Dark Fantasy)</option>
+            <option value="realistic 3D render, unreal engine 5, 4k">写实 3D (Realistic)</option>
+            <option value="">自定义...</option>
+          </select>
+          
+          <label class="form-label" style="margin-top: 12px;">风格提示词 (可编辑)</label>
+          <input type="text" id="customStyleInput" class="input-field" placeholder="输入或选择风格...">
+        </div>
+
+        <!-- 参考图上传 (仅风格迁移模式) -->
+        <div id="referenceSection" class="form-group" style="display: none;">
+          <label class="form-label">参考图片</label>
+          <div class="upload-area" id="uploadZone">
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <div class="upload-placeholder" id="uploadPlaceholder">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>点击或拖拽上传参考图</span>
+            </div>
+            <img id="uploadPreview" class="upload-preview-img">
+          </div>
+        </div>
+
+        <!-- 提示词输入 -->
+        <div class="form-group">
+          <label class="form-label">图标描述</label>
+          <textarea id="promptInput" class="input-field" placeholder="描述这组图标的主题。例如：
+- 一套中世纪 RPG 的药水瓶，包含红蓝绿三种颜色
+- 科幻风格的能量护盾和电池
+- 各种元素的魔法宝石"></textarea>
+        </div>
+
+        <button id="btnGenerate" class="btn btn-primary">
+          <span>✨ 开始生成</span>
+        </button>
+      </div>
+
+      <!-- 历史记录 -->
+      <div class="history-bar">
+        <label class="form-label">最近生成</label>
+        <div class="history-list" id="historyList">
+          <!-- 历史项将通过 JS 插入 -->
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- 右侧展示区 -->
+    <main class="display-area">
+      
+      <!-- 主图预览卡片 -->
+      <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="section-header">
+          <h2 class="section-title">生成结果</h2>
+          <div class="actions">
+            <button id="btnDownloadFull" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" disabled>
+              下载完整网格
+            </button>
+          </div>
+        </div>
+
+        <div class="preview-canvas empty" id="previewArea">
+          <div class="placeholder-content">
+            <div style="font-size: 3rem; margin-bottom: 16px;">🖼️</div>
+            <p>在左侧配置并生成图标</p>
+            <p style="font-size: 0.85rem; opacity: 0.6;">支持 3x3 批量生成与自动切片</p>
+          </div>
+          <img id="resultImage" style="display: none;">
+          <div class="loader" id="loader" style="display: none;"></div>
+        </div>
+
+        <!-- 切片结果 -->
+        <div id="slicedSection" style="margin-top: 24px; display: none;">
+          <div class="section-header">
+            <h3 class="section-title" style="font-size: 0.9rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              自动切片 (点击下载单个)
+            </h3>
+            <button id="btnDownloadAllSlices" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+              打包下载全部
+            </button>
+          </div>
+          <div class="sliced-grid" id="slicedGrid">
+            <!-- 切片将通过 JS 插入 -->
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- API Key Modal -->
+  <dialog id="apiKeyDialog">
+    <h3 class="dialog-title">API 设置</h3>
+    <div class="form-group">
+      <label class="form-label">Gemini API Key</label>
+      <input type="password" id="apiKeyInput" class="input-field" placeholder="粘贴你的 key...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Base URL（可选）</label>
+      <input type="text" id="baseUrlInput" class="input-field" placeholder="默认：https://generativelanguage.googleapis.com/v1beta">
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+        留空使用官方地址，或填入代理地址。所有设置仅保存在本地浏览器中。
+      </p>
+    </div>
+    <div class="dialog-footer">
+      <button id="btnCancelKey" class="btn btn-secondary" style="width: auto;">取消</button>
+      <button id="btnSaveKey" class="btn btn-primary" style="width: auto;">保存</button>
+    </div>
+  </dialog>
+
+  <!-- Update Dialog -->
+  <dialog id="updateDialog">
+    <h3 class="dialog-title">🎉 发现新版本</h3>
+    <div style="margin: 16px 0;">
+      <p style="margin: 8px 0;"><strong>当前版本：</strong><span id="currentVersion">未知</span></p>
+      <p style="margin: 8px 0;"><strong>最新版本：</strong><span id="latestVersion">--</span></p>
+      <p style="margin: 8px 0;"><strong>更新内容：</strong><span id="updateMessage">--</span></p>
+      <p style="margin: 8px 0; font-size: 0.85rem; color: var(--text-secondary);">
+        <strong>更新时间：</strong><span id="updateDate">--</span>
+      </p>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 16px;">
+      点击"立即更新"将重新加载页面以获取最新版本。
+    </p>
+    <div class="dialog-footer">
+      <button id="btnCancelUpdate" class="btn btn-secondary" style="width: auto;">稍后再说</button>
+      <button id="btnConfirmUpdate" class="btn btn-primary" style="width: auto;">立即更新</button>
+    </div>
+  </dialog>
+
+  <!-- Toast -->
+  <div id="toast" class="toast">
+    <span>消息内容</span>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
