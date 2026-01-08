@@ -4,6 +4,7 @@
 
 import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js';
 import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail } from './core/image-utils.js';
+import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion } from './core/update-checker.js';
 
 // ============================================================================
 // 应用状态
@@ -32,10 +33,20 @@ function cacheDOM() {
   elements = {
     // 导航与设置
     btnSettings: document.getElementById('btnSettings'),
+    btnCheckUpdate: document.getElementById('btnCheckUpdate'),
     apiKeyDialog: document.getElementById('apiKeyDialog'),
     apiKeyInput: document.getElementById('apiKeyInput'),
     btnSaveKey: document.getElementById('btnSaveKey'),
     btnCancelKey: document.getElementById('btnCancelKey'),
+
+    // 更新对话框
+    updateDialog: document.getElementById('updateDialog'),
+    currentVersion: document.getElementById('currentVersion'),
+    latestVersion: document.getElementById('latestVersion'),
+    updateMessage: document.getElementById('updateMessage'),
+    updateDate: document.getElementById('updateDate'),
+    btnConfirmUpdate: document.getElementById('btnConfirmUpdate'),
+    btnCancelUpdate: document.getElementById('btnCancelUpdate'),
 
     // 控制面板
     tabs: document.querySelectorAll('.tab'),
@@ -102,6 +113,11 @@ function bindEvents() {
   if (elements.btnSettings) elements.btnSettings.addEventListener('click', () => elements.apiKeyDialog.showModal());
   if (elements.btnCancelKey) elements.btnCancelKey.addEventListener('click', () => elements.apiKeyDialog.close());
   if (elements.btnSaveKey) elements.btnSaveKey.addEventListener('click', saveApiKey);
+
+  // 检查更新
+  if (elements.btnCheckUpdate) elements.btnCheckUpdate.addEventListener('click', handleCheckUpdate);
+  if (elements.btnCancelUpdate) elements.btnCancelUpdate.addEventListener('click', () => elements.updateDialog.close());
+  if (elements.btnConfirmUpdate) elements.btnConfirmUpdate.addEventListener('click', handleConfirmUpdate);
 
   // Tab 切换
   if (elements.tabs) {
@@ -401,6 +417,60 @@ function renderHistoryUI() {
   });
 }
 
+
+// ============================================================================
+// 更新检查
+// ============================================================================
+
+let pendingUpdateVersion = null;
+
+async function handleCheckUpdate() {
+  const btn = elements.btnCheckUpdate;
+  const originalText = btn.textContent;
+  
+  try {
+    btn.disabled = true;
+    btn.textContent = '🔄 检查中...';
+    
+    const result = await checkForUpdates();
+    
+    if (result.hasUpdate) {
+      // 有更新可用 - 显示更新对话框
+      pendingUpdateVersion = result.latest.hash;
+      elements.currentVersion.textContent = result.current || '未知';
+      elements.latestVersion.textContent = result.latest.hash;
+      elements.updateMessage.textContent = result.latest.message;
+      elements.updateDate.textContent = result.latest.date;
+      elements.updateDialog.showModal();
+    } else {
+      // 没有更新
+      const currentVer = getCurrentVersion();
+      if (!currentVer) {
+        // 首次使用，保存当前版本
+        saveCurrentVersion(result.latest.hash);
+        showToast(`已记录当前版本: ${result.latest.hash}`, false);
+      } else {
+        showToast('已是最新版本！', false);
+      }
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error);
+    showToast('检查更新失败，请检查网络连接', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function handleConfirmUpdate() {
+  if (pendingUpdateVersion) {
+    elements.updateDialog.close();
+    showToast('正在更新...', false);
+    setTimeout(() => {
+      updateApp(pendingUpdateVersion);
+    }, 500);
+  }
+}
 
 // ============================================================================
 // 通用工具
