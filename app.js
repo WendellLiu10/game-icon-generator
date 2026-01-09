@@ -562,16 +562,13 @@ async function downloadImage(base64, filename) {
   // 如果选择了特定尺寸（非原始尺寸），则调整图片大小
   if (state.downloadSize !== 'original') {
     const size = parseInt(state.downloadSize, 10);
-    // 验证尺寸是否为有效数字且在允许的选项中
-    if (!isNaN(size) && size > 0 && ALLOWED_DOWNLOAD_SIZES.includes(state.downloadSize)) {
-      try {
-        imageToDownload = await resizeToIcon(base64, size);
-      } catch (error) {
-        console.error('调整图片尺寸失败:', error);
-        showToast('调整尺寸失败，将下载原始尺寸', true);
-      }
-    } else {
-      console.warn('无效的下载尺寸设置:', state.downloadSize);
+    try {
+      imageToDownload = await resizeToIcon(base64, size);
+    } catch (error) {
+      console.error('调整图片尺寸失败:', error);
+      showToast('调整尺寸失败，将下载原始尺寸', true);
+      // 出错时使用原始图片
+      imageToDownload = base64;
     }
   }
   
