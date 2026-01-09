@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI 游戏图标工坊</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
   <style>
     :root {
       --bg-color: #0f111a;
       --card-bg: rgba(30, 35, 50, 0.6);
       --card-border: rgba(255, 255, 255, 0.08);
-      --accent-color: #6366f1; /* Indigo 500 */
+      --accent-color: #6366f1;
+      /* Indigo 500 */
       --accent-hover: #4f46e5;
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
@@ -25,7 +28,7 @@
       margin: 0;
       padding: 0;
       background-color: var(--bg-color);
-      background-image: 
+      background-image:
         radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08) 0%, transparent 25%);
       color: var(--text-primary);
@@ -146,7 +149,7 @@
     .tab.active {
       background: var(--card-border);
       color: var(--text-primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
     /* 表单元素 */
@@ -224,7 +227,7 @@
       max-height: 200px;
       border-radius: 8px;
       display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
     /* 按钮 */
@@ -280,7 +283,8 @@
     .preview-canvas {
       width: 100%;
       aspect-ratio: 1;
-      background: #ffffff; /* 保持白色背景展示图标 */
+      background: #ffffff;
+      /* 保持白色背景展示图标 */
       border-radius: 16px;
       display: flex;
       align-items: center;
@@ -288,7 +292,7 @@
       overflow: hidden;
       position: relative;
     }
-    
+
     .preview-canvas.empty {
       background: rgba(0, 0, 0, 0.2);
       border: 2px dashed var(--card-border);
@@ -300,7 +304,7 @@
       object-fit: contain;
       transition: transform 0.3s ease;
     }
-    
+
     .preview-canvas:hover img {
       /* transform: scale(1.02); */
     }
@@ -319,8 +323,12 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    
-    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    @keyframes spin {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
 
     /* 切片结果网格 */
     .sliced-grid {
@@ -331,13 +339,14 @@
       overflow-x: auto;
       padding-bottom: 8px;
     }
-    
+
     /* 响应式调整：移动端改为 3x3，桌面端 1行9列或自动 */
     @media (min-width: 1200px) {
       .sliced-grid {
         grid-template-columns: repeat(9, 1fr);
       }
     }
+
     @media (max-width: 1199px) {
       .sliced-grid {
         grid-template-columns: repeat(3, 1fr);
@@ -357,7 +366,7 @@
 
     .slice-item:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       border-color: var(--accent-color);
       z-index: 10;
     }
@@ -367,22 +376,22 @@
       height: 100%;
       object-fit: cover;
     }
-    
+
     .slice-actions {
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0, 0, 0, 0.6);
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       transition: opacity 0.2s;
     }
-    
+
     .slice-item:hover .slice-actions {
       opacity: 1;
     }
-    
+
     .icon-btn {
       background: white;
       color: black;
@@ -395,7 +404,7 @@
       border: none;
       cursor: pointer;
     }
-    
+
     .icon-btn:hover {
       background: #f0f0f0;
     }
@@ -406,7 +415,7 @@
       border-top: 1px solid var(--card-border);
       padding-top: 24px;
     }
-    
+
     .history-list {
       display: flex;
       gap: 12px;
@@ -415,7 +424,7 @@
       scrollbar-width: thin;
       scrollbar-color: var(--card-border) transparent;
     }
-    
+
     .history-item {
       flex-shrink: 0;
       width: 64px;
@@ -427,26 +436,26 @@
       transition: all 0.2s;
       border: 2px solid transparent;
     }
-    
+
     .history-item:hover {
       opacity: 1;
     }
-    
+
     .history-item.active {
       opacity: 1;
       border-color: var(--accent-color);
     }
-    
+
     .history-item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    
+
     .history-actions {
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -455,11 +464,11 @@
       opacity: 0;
       transition: opacity 0.2s;
     }
-    
+
     .history-item:hover .history-actions {
       opacity: 1;
     }
-    
+
     .history-btn {
       background: white;
       color: black;
@@ -470,7 +479,7 @@
       cursor: pointer;
       font-weight: 500;
     }
-    
+
     .history-btn:hover {
       background: #f0f0f0;
     }
@@ -500,11 +509,11 @@
       align-items: center;
       gap: 8px;
     }
-    
+
     .toast.show {
       transform: translateX(-50%) translateY(0);
     }
-    
+
     .toast.error {
       border-color: #ef4444;
       color: #fca5a5;
@@ -519,32 +528,31 @@
       color: var(--text-primary);
       width: 90%;
       max-width: 480px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
-    
+
     dialog::backdrop {
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(4px);
     }
-    
+
     .dialog-title {
       font-size: 1.25rem;
       font-weight: 600;
       margin-bottom: 16px;
     }
-    
+
     .dialog-footer {
       display: flex;
       justify-content: flex-end;
       gap: 12px;
       margin-top: 24px;
     }
-
   </style>
-  <file_path>S:\TetrisJiangHu\trunk\MonopolyTetrisDemo\web\icon-generator\index.html</file_path>
 </head>
+
 <body>
-  
+
   <nav class="navbar">
     <div class="brand">
       <div class="brand-icon">🎨</div>
@@ -562,10 +570,10 @@
   </nav>
 
   <div class="main-container">
-    
+
     <!-- 左侧控制区 -->
     <aside class="control-panel">
-      
+
       <!-- 生成配置 -->
       <div class="card">
         <div class="tabs">
@@ -586,7 +594,7 @@
             <option value="realistic 3D render, unreal engine 5, 4k">写实 3D (Realistic)</option>
             <option value="">自定义...</option>
           </select>
-          
+
           <label class="form-label" style="margin-top: 12px;">风格提示词 (可编辑)</label>
           <input type="text" id="customStyleInput" class="input-field" placeholder="输入或选择风格...">
         </div>
@@ -642,7 +650,8 @@
       <div class="history-bar">
         <div class="section-header" style="margin-bottom: 12px;">
           <label class="form-label" style="margin-bottom: 0;">最近生成</label>
-          <button id="btnClearHistory" class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">
+          <button id="btnClearHistory" class="btn btn-secondary"
+            style="width: auto; padding: 6px 12px; font-size: 0.8rem;">
             🗑️ 清理历史
           </button>
         </div>
@@ -655,16 +664,18 @@
 
     <!-- 右侧展示区 -->
     <main class="display-area">
-      
+
       <!-- 主图预览卡片 -->
       <div class="card" style="flex: 1; display: flex; flex-direction: column;">
         <div class="section-header">
           <h2 class="section-title">生成结果</h2>
           <div class="actions-container">
-            <button id="btnSetAsReference" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" disabled>
+            <button id="btnSetAsReference" class="btn btn-secondary"
+              style="width: auto; padding: 8px 16px; font-size: 0.85rem;" disabled>
               设为参考图
             </button>
-            <button id="btnDownloadFull" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" disabled>
+            <button id="btnDownloadFull" class="btn btn-secondary"
+              style="width: auto; padding: 8px 16px; font-size: 0.85rem;" disabled>
               下载完整网格
             </button>
           </div>
@@ -684,7 +695,8 @@
         <div id="slicedSection" style="margin-top: 24px; display: none;">
           <div class="section-header">
             <h3 class="section-title" style="font-size: 0.9rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="margin-right: 6px;">
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
                 <rect x="14" y="14" width="7" height="7"></rect>
@@ -715,7 +727,8 @@
     </div>
     <div class="form-group">
       <label class="form-label">Base URL（可选）</label>
-      <input type="text" id="baseUrlInput" class="input-field" placeholder="默认：https://generativelanguage.googleapis.com/v1beta">
+      <input type="text" id="baseUrlInput" class="input-field"
+        placeholder="默认：https://generativelanguage.googleapis.com/v1beta">
       <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
         留空使用官方地址，或填入代理地址。所有设置仅保存在本地浏览器中。
       </p>
@@ -753,4 +766,5 @@
 
   <script type="module" src="./app.js"></script>
 </body>
+
 </html>
