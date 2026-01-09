@@ -4,7 +4,7 @@
 
 import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js';
 import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
-import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion } from './core/update-checker.js';
+import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion, getLocalVersion } from './core/update-checker.js';
 
 // ============================================================================
 // 常量
@@ -15,6 +15,10 @@ const BATCH_DOWNLOAD_DELAY_MS = 300;
 
 // 允许的下载尺寸选项
 const ALLOWED_DOWNLOAD_SIZES = ['original', '128', '256', '512'];
+
+// 历史记录存储相关常量
+const HISTORY_STORAGE_KEY = 'icon_history';
+const MAX_HISTORY = 8;
 
 // ============================================================================
 // 应用状态
@@ -43,6 +47,9 @@ let elements = {};
 
 function cacheDOM() {
   elements = {
+    // 版本显示
+    versionDisplay: document.getElementById('versionDisplay'),
+    
     // 导航与设置
     btnSettings: document.getElementById('btnSettings'),
     btnCheckUpdate: document.getElementById('btnCheckUpdate'),
@@ -82,6 +89,7 @@ function cacheDOM() {
 
     // 历史记录
     historyList: document.getElementById('historyList'),
+    btnClearHistory: document.getElementById('btnClearHistory'),
 
     // 展示区域
     previewArea: document.getElementById('previewArea'),
@@ -109,6 +117,7 @@ function init() {
   cacheDOM();
   loadHistory();
   bindEvents();
+  loadAndDisplayVersion(); // 加载并显示版本
 
   // 从 localStorage 恢复状态
   state.apiKey = localStorage.getItem('gemini_api_key') || '';
@@ -157,6 +166,9 @@ function bindEvents() {
   if (elements.btnCheckUpdate) elements.btnCheckUpdate.addEventListener('click', handleCheckUpdate);
   if (elements.btnCancelUpdate) elements.btnCancelUpdate.addEventListener('click', () => elements.updateDialog.close());
   if (elements.btnConfirmUpdate) elements.btnConfirmUpdate.addEventListener('click', handleConfirmUpdate);
+
+  // 清理历史记录
+  if (elements.btnClearHistory) elements.btnClearHistory.addEventListener('click', handleClearHistory);
 
   // Tab 切换
   if (elements.tabs) {
@@ -249,6 +261,28 @@ function bindEvents() {
         showToast('批量下载失败', true);
       }
     });
+  }
+}
+
+// ============================================================================
+// 版本显示
+// ============================================================================
+
+/**
+ * 加载并显示版本号
+ */
+async function loadAndDisplayVersion() {
+  try {
+    const versionInfo = await getLocalVersion();
+    if (elements.versionDisplay) {
+      elements.versionDisplay.textContent = `v${versionInfo.version}`;
+      elements.versionDisplay.title = `版本: ${versionInfo.version}\n日期: ${versionInfo.date}\n${versionInfo.description}`;
+    }
+  } catch (error) {
+    console.error('加载版本信息失败:', error);
+    if (elements.versionDisplay) {
+      elements.versionDisplay.textContent = 'v未知';
+    }
   }
 }
 
@@ -463,48 +497,123 @@ function handleSetAsReference() {
 // 历史记录
 // ============================================================================
 
-const MAX_HISTORY = 8;
-
+/**
+ * 添加到历史记录（带本地缓存）
+ */
 async function addToHistory(item) {
   const thumbnail = await createThumbnail(item.resultImage, 100);
 
   const historyItem = {
     id: Date.now(),
+    timestamp: Date.now(),
     thumbnail,
-    ...item
+    prompt: item.prompt,
+    style: item.style,
+    mode: item.mode,
+    resultImage: item.resultImage,  // 完整保存到 localStorage
+    slices: item.slices             // 完整保存到 localStorage
   };
 
   try {
     state.history.unshift(historyItem);
-    if (state.history.length > MAX_HISTORY) state.history.pop();
+    if (state.history.length > MAX_HISTORY) {
+      state.history.pop();
+    }
     saveHistoryToStorage();
     renderHistoryUI();
   } catch (e) {
-    console.warn('Storage full, clearing old history');
-    state.history = [historyItem];
-    saveHistoryToStorage();
-    renderHistoryUI();
+    console.warn('存储空间已满，尝试清理旧记录:', e);
+    // 如果存储失败，逐步减少历史记录数量
+    let maxRetries = 3;
+    let itemsToKeep = Math.max(1, Math.floor(state.history.length / 2));
+    
+    while (maxRetries > 0 && itemsToKeep > 0) {
+      try {
+        state.history = [historyItem, ...state.history.slice(0, itemsToKeep - 1)];
+        saveHistoryToStorage();
+        renderHistoryUI();
+        showToast(`已保存，清理了部分旧记录（保留 ${state.history.length} 条）`, false);
+        return;
+      } catch (e2) {
+        itemsToKeep = Math.floor(itemsToKeep / 2);
+        maxRetries--;
+      }
+    }
+    
+    // 如果还是失败，只保留当前这一条
+    try {
+      state.history = [historyItem];
+      saveHistoryToStorage();
+      renderHistoryUI();
+      showToast('存储空间不足，只保留了最新记录', true);
+    } catch (e3) {
+      console.error('无法保存历史记录:', e3);
+      showToast('存储空间不足，无法保存历史记录', true);
+    }
   }
 }
 
+/**
+ * 保存历史记录到 localStorage
+ */
 function saveHistoryToStorage() {
   try {
-    localStorage.setItem('history_meta', JSON.stringify(state.history.map(h => ({
-      id: h.id,
-      prompt: h.prompt,
-      thumbnail: h.thumbnail,
-      mode: h.mode
-    }))));
+    // 将完整的历史记录（包括图片数据）保存到 localStorage
+    const historyData = JSON.stringify(state.history);
+    localStorage.setItem(HISTORY_STORAGE_KEY, historyData);
   } catch (e) {
-    console.error(e);
+    // 如果存储失败（可能超出配额），尝试只保留较少的历史记录
+    console.error('保存历史记录失败:', e);
+    throw e;
   }
 }
 
+/**
+ * 从 localStorage 加载历史记录
+ */
 function loadHistory() {
   try {
+    const historyData = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (historyData) {
+      state.history = JSON.parse(historyData);
+    } else {
+      state.history = [];
+    }
+    renderHistoryUI();
+  } catch (e) {
+    console.error('加载历史记录失败:', e);
     state.history = [];
     renderHistoryUI();
-  } catch (e) { }
+  }
+}
+
+/**
+ * 清理历史记录
+ */
+function handleClearHistory() {
+  if (!confirm('确定要清除所有历史记录吗？此操作不可恢复。')) {
+    return;
+  }
+  
+  try {
+    state.history = [];
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+    renderHistoryUI();
+    
+    // 清除当前显示的结果
+    state.resultImage = null;
+    state.slices = [];
+    elements.resultImage.style.display = 'none';
+    elements.placeholderContent.style.display = 'block';
+    elements.previewArea.classList.add('empty');
+    elements.slicedSection.style.display = 'none';
+    elements.btnDownloadFull.disabled = true;
+    
+    showToast('历史记录已清除', false);
+  } catch (e) {
+    console.error('清除历史记录失败:', e);
+    showToast('清除失败', true);
+  }
 }
 
 function renderHistoryUI() {

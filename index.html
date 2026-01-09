@@ -549,6 +549,7 @@
     <div class="brand">
       <div class="brand-icon">🎨</div>
       AI 游戏图标工坊
+      <span id="versionDisplay" style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 12px;">v...</span>
     </div>
     <div style="display: flex; gap: 12px;">
       <button id="btnCheckUpdate" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.9rem;">
@@ -639,7 +640,12 @@
 
       <!-- 历史记录 -->
       <div class="history-bar">
-        <label class="form-label">最近生成</label>
+        <div class="section-header" style="margin-bottom: 12px;">
+          <label class="form-label" style="margin-bottom: 0;">最近生成</label>
+          <button id="btnClearHistory" class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">
+            🗑️ 清理历史
+          </button>
+        </div>
         <div class="history-list" id="historyList">
           <!-- 历史项将通过 JS 插入 -->
         </div>

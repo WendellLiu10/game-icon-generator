@@ -6,6 +6,30 @@
 const GITHUB_REPO = 'WendellLiu10/game-icon-generator';
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/commits/main`;
 const VERSION_KEY = 'app_version_hash';
+const VERSION_FILE = './version.json';
+
+/**
+ * 获取本地版本信息
+ * @returns {Promise<{version: string, date: string, description: string}>}
+ */
+export async function getLocalVersion() {
+  try {
+    const response = await fetch(VERSION_FILE, {
+      cache: 'no-cache'  // 防止浏览器缓存版本文件
+    });
+    
+    if (!response.ok) {
+      console.warn('无法获取版本文件');
+      return { version: '未知', date: '', description: '' };
+    }
+    
+    const versionData = await response.json();
+    return versionData;
+  } catch (error) {
+    console.error('读取版本文件失败:', error);
+    return { version: '未知', date: '', description: '' };
+  }
+}
 
 /**
  * 获取 GitHub 仓库的最新 commit hash
@@ -71,17 +95,31 @@ export async function checkForUpdates() {
 /**
  * 更新应用（重新加载页面）
  */
-export function updateApp(newVersion) {
+export async function updateApp(newVersion) {
   // 保存新版本号
   saveCurrentVersion(newVersion);
   
-  // 清除缓存并重新加载
+  // 清除所有缓存
+  await clearAllCaches();
+  
+  // 强制刷新页面（带时间戳）
+  const timestamp = Date.now();
+  window.location.href = window.location.pathname + '?t=' + timestamp;
+}
+
+/**
+ * 清除所有缓存
+ */
+export async function clearAllCaches() {
+  // 清除 Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(registration => registration.unregister());
-    });
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(reg => reg.unregister()));
   }
   
-  // 强制刷新页面
-  window.location.reload(true);
+  // 清除浏览器缓存（如果支持 Cache API）
+  if ('caches' in window) {
+    const names = await caches.keys();
+    await Promise.all(names.map(name => caches.delete(name)));
+  }
 }
