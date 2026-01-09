@@ -48,17 +48,52 @@ npx serve .
 
 ## 更新功能
 
-应用内置了自动更新检查功能：
+应用支持两种更新方式：
+
+### 自动更新（推荐）
+
+通过 GitHub Webhook 实现代码推送后服务器自动更新：
+
+#### 1. 启动服务
+
+```bash
+# 启动所有服务（HTTP + Webhook）
+./start.sh
+
+# 或指定端口
+PORT=3500 WEBHOOK_PORT=3501 ./start.sh
+
+# 查看状态
+./start.sh status
+
+# 查看日志
+./start.sh logs
+
+# 停止所有服务
+./stop.sh
+```
+
+#### 2. 配置 GitHub Webhook
+
+1. 进入仓库 **Settings** → **Webhooks** → **Add webhook**
+2. 填写配置：
+   - **Payload URL**: `http://你的服务器IP:3501/webhook`
+   - **Content type**: `application/json`
+   - **Secret**: 可选，设置后需配置 `WEBHOOK_SECRET` 环境变量
+   - **Events**: 选择 **Just the push event**
+3. 点击 **Add webhook** 保存
+
+#### 3. 测试
+
+推送代码到 main 分支后，服务器会自动执行 `git pull` 更新代码。
+
+### 手动更新
 
 1. 点击右上角的「🔄 检查更新」按钮
-2. 系统会自动检查 GitHub 仓库是否有新版本
-3. 如果有更新，会显示更新详情（版本号、更新内容、更新时间）
-4. 点击「立即更新」即可清除缓存并重新加载最新版本
+2. 系统会检查 GitHub 仓库是否有新版本
+3. 如果有更新，点击「立即更新」刷新页面
 
-**注意**：
-- 首次点击「检查更新」会记录当前版本
-- 版本信息存储在浏览器本地存储中
-- 更新时会清除所有缓存（包括 Service Worker 和 Cache API）并强制刷新页面
+**注意**：手动更新只会刷新页面，实际代码更新需要 Webhook 或手动 `git pull`。
 
 ## 历史记录与缓存
 
@@ -78,11 +113,16 @@ icon-generator/
 ├── index.html          # 入口页面
 ├── app.js              # 应用主逻辑
 ├── prompts.md          # 提示词模板文档
+├── version.json        # 版本信息文件
 ├── README.md           # 本文件
+├── start.sh            # 一键启动脚本 (HTTP + Webhook)
+├── stop.sh             # 停止服务脚本
+├── webhook-server.py   # GitHub Webhook 服务器
 ├── api/
 │   └── gemini.js       # Gemini API 封装
 └── core/
     ├── image-utils.js  # 图片处理工具
+    ├── update-checker.js # 版本检查工具
     └── grid-renderer.js # 网格渲染（备用）
 ```
 

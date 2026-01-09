@@ -93,7 +93,16 @@ export async function checkForUpdates() {
 }
 
 /**
- * 更新应用（重新加载页面）
+ * 更新应用
+ * 
+ * 注意：实际代码更新由服务器端的 GitHub Webhook 自动完成
+ * 此函数只负责：
+ *   1. 保存新版本号到本地存储
+ *   2. 清除浏览器缓存
+ *   3. 刷新页面以加载最新代码
+ * 
+ * 如果服务器尚未通过 Webhook 更新，刷新后仍是旧代码
+ * 请确保服务器已运行 webhook-server.py
  */
 export async function updateApp(newVersion) {
   // 保存新版本号
