@@ -728,7 +728,9 @@ function renderHistoryUI() {
       state.slices = item.slices;
       state.prompt = item.prompt;
       state.mode = item.mode;
-      state.gridSize = item.gridSize || DEFAULT_GRID_SIZE; // 兼容旧记录
+      // 兼容旧记录，确保网格大小有效
+      const itemGridSize = item.gridSize || DEFAULT_GRID_SIZE;
+      state.gridSize = ALLOWED_GRID_SIZES.includes(itemGridSize) ? itemGridSize : DEFAULT_GRID_SIZE;
       elements.promptInput.value = item.prompt;
       if (elements.gridSizeSelect) {
         elements.gridSizeSelect.value = state.gridSize.toString();

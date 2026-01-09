@@ -349,22 +349,22 @@
       grid-template-columns: repeat(5, 1fr);
     }
 
-    /* 响应式调整：移动端改为实际网格，桌面端 1行全部列或自动 */
+    /* 响应式调整 */
     @media (min-width: 1200px) {
       .sliced-grid.grid-3x3 {
-        grid-template-columns: repeat(9, 1fr);
+        grid-template-columns: repeat(9, 1fr); /* 桌面端：1行9列 */
       }
       .sliced-grid.grid-5x5 {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(5, 1fr); /* 桌面端：5行5列 */
       }
     }
 
     @media (max-width: 1199px) {
       .sliced-grid.grid-3x3 {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr); /* 移动端：3x3网格 */
       }
       .sliced-grid.grid-5x5 {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(3, 1fr); /* 移动端：3列自动折行 */
       }
     }
 
