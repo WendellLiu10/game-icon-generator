@@ -108,6 +108,9 @@ function init() {
     }
     state.style = elements.customStyleInput.value;
   }
+
+  // 更新 UI 状态，确保按钮状态正确
+  updateUI();
 }
 
 function bindEvents() {
@@ -174,6 +177,7 @@ function bindEvents() {
     elements.promptInput.addEventListener('input', (e) => {
       state.prompt = e.target.value;
       localStorage.setItem('last_prompt', state.prompt);
+      updateUI();
     });
   }
 
