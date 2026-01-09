@@ -14,10 +14,8 @@ const VERSION_FILE = './version.json';
  */
 export async function getLocalVersion() {
   try {
-    // 添加时间戳参数以避免缓存
-    const timestamp = Date.now();
-    const response = await fetch(`${VERSION_FILE}?t=${timestamp}`, {
-      cache: 'no-cache'
+    const response = await fetch(VERSION_FILE, {
+      cache: 'no-cache'  // 防止浏览器缓存版本文件
     });
     
     if (!response.ok) {
