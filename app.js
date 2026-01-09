@@ -7,12 +7,22 @@ import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail,
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion } from './core/update-checker.js';
 
 // ============================================================================
+// 常量
+// ============================================================================
+
+// 批量下载时每次下载之间的延迟时间（毫秒）
+const BATCH_DOWNLOAD_DELAY_MS = 300;
+
+// 允许的下载尺寸选项
+const ALLOWED_DOWNLOAD_SIZES = ['original', '128', '256', '512'];
+
+// ============================================================================
 // 应用状态
 // ============================================================================
 
 const state = {
-  apiKey: localStorage.getItem('gemini_api_key') || '',
-  baseUrl: localStorage.getItem('gemini_base_url') || '',
+  apiKey: '',
+  baseUrl: '',
   mode: 'text',              // 'text' | 'style'
   style: '',                 // 当前选中的风格描述
   customStyle: '',           // 自定义风格
@@ -22,7 +32,7 @@ const state = {
   slices: [],                // 切片后的 9 张图 Base64 数组
   isGenerating: false,
   history: [],               // { id, timestamp, resultImage, slices, prompt, style }
-  downloadSize: localStorage.getItem('download_size') || 'original', // 下载尺寸设置
+  downloadSize: 'original',  // 下载尺寸设置
 };
 
 // ============================================================================
@@ -99,7 +109,17 @@ function init() {
   loadHistory();
   bindEvents();
 
-  // 恢复上次状态
+  // 从 localStorage 恢复状态
+  state.apiKey = localStorage.getItem('gemini_api_key') || '';
+  state.baseUrl = localStorage.getItem('gemini_base_url') || '';
+  
+  // 恢复下载尺寸设置，并验证是否为有效值
+  const savedDownloadSize = localStorage.getItem('download_size');
+  if (savedDownloadSize && ALLOWED_DOWNLOAD_SIZES.includes(savedDownloadSize)) {
+    state.downloadSize = savedDownloadSize;
+  }
+
+  // 恢复上次提示词
   const savedPrompt = localStorage.getItem('last_prompt');
   if (savedPrompt && elements.promptInput) elements.promptInput.value = savedPrompt;
   state.prompt = savedPrompt || '';
@@ -113,7 +133,7 @@ function init() {
     state.style = elements.customStyleInput.value;
   }
 
-  // 恢复下载尺寸设置
+  // 恢复下载尺寸设置到 UI
   if (elements.downloadSizeSelect) {
     elements.downloadSizeSelect.value = state.downloadSize;
   }
@@ -193,8 +213,12 @@ function bindEvents() {
   // 下载尺寸选择
   if (elements.downloadSizeSelect) {
     elements.downloadSizeSelect.addEventListener('change', (e) => {
-      state.downloadSize = e.target.value;
-      localStorage.setItem('download_size', state.downloadSize);
+      const newSize = e.target.value;
+      // 验证选择的值是否有效
+      if (ALLOWED_DOWNLOAD_SIZES.includes(newSize)) {
+        state.downloadSize = newSize;
+        localStorage.setItem('download_size', newSize);
+      }
     });
   }
 
@@ -370,7 +394,7 @@ async function handleDownloadAllSlices() {
     await downloadImage(state.slices[index], `icon-${index + 1}.png`);
     // 在下载之间添加延迟以防止浏览器拦截
     if (index < state.slices.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, BATCH_DOWNLOAD_DELAY_MS));
     }
   }
 }
@@ -538,8 +562,8 @@ async function downloadImage(base64, filename) {
   // 如果选择了特定尺寸（非原始尺寸），则调整图片大小
   if (state.downloadSize !== 'original') {
     const size = parseInt(state.downloadSize, 10);
-    // 验证尺寸是否为有效数字
-    if (!isNaN(size) && size > 0) {
+    // 验证尺寸是否为有效数字且在允许的选项中
+    if (!isNaN(size) && size > 0 && ALLOWED_DOWNLOAD_SIZES.includes(state.downloadSize)) {
       try {
         imageToDownload = await resizeToIcon(base64, size);
       } catch (error) {
