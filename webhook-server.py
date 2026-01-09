@@ -22,6 +22,7 @@ import os
 import sys
 import hmac
 import hashlib
+import threading
 from datetime import datetime
 
 # 配置
@@ -193,21 +194,23 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
             self.send_json_response(200, {'message': f'忽略分支: {ref}'})
             return
         
-        # 执行 git pull
-        success, message = git_pull()
+        # 先返回响应给 GitHub（避免超时）
+        self.send_json_response(200, {
+            'status': 'accepted',
+            'message': '已收到推送事件，正在后台执行 git pull'
+        })
         
-        if success:
-            self.send_json_response(200, {
-                'status': 'success',
-                'message': '更新成功',
-                'git_output': message
-            })
-        else:
-            self.send_json_response(500, {
-                'status': 'error',
-                'message': '更新失败',
-                'error': message
-            })
+        # 异步执行 git pull
+        def async_git_pull():
+            success, message = git_pull()
+            if success:
+                log(f"后台 git pull 完成: {message}")
+            else:
+                log(f"后台 git pull 失败: {message}")
+        
+        thread = threading.Thread(target=async_git_pull)
+        thread.daemon = True
+        thread.start()
 
 
 def main():
