@@ -16,6 +16,12 @@ const BATCH_DOWNLOAD_DELAY_MS = 300;
 // 允许的下载尺寸选项
 const ALLOWED_DOWNLOAD_SIZES = ['original', '128', '256', '512'];
 
+// 允许的网格大小选项
+const ALLOWED_GRID_SIZES = [3, 5];
+
+// 默认网格大小
+const DEFAULT_GRID_SIZE = 3;
+
 // 历史记录存储相关常量
 const HISTORY_STORAGE_KEY = 'icon_history';
 const MAX_HISTORY = 8;
@@ -32,12 +38,13 @@ const state = {
   customStyle: '',           // 自定义风格
   referenceImage: null,      // Base64
   prompt: '',
-  resultImage: null,         // 生成的 3x3 网格图 Base64
-  slices: [],                // 切片后的 9 张图 Base64 数组
+  resultImage: null,         // 生成的网格图 Base64
+  slices: [],                // 切片后的图标 Base64 数组
   isGenerating: false,
-  history: [],               // { id, timestamp, resultImage, slices, prompt, style }
+  history: [],               // { id, timestamp, resultImage, slices, prompt, style, gridSize }
   downloadSize: 'original',  // 下载尺寸设置
   generateResolution: 1024,  // 生成分辨率 (1024/2048/4096)
+  gridSize: DEFAULT_GRID_SIZE, // 网格大小 (3 或 5)
 };
 
 // ============================================================================
@@ -90,6 +97,9 @@ function cacheDOM() {
 
     // 生成分辨率选择
     generateResolutionSelect: document.getElementById('generateResolutionSelect'),
+
+    // 网格大小选择
+    gridSizeSelect: document.getElementById('gridSizeSelect'),
 
     // 历史记录
     historyList: document.getElementById('historyList'),
@@ -170,6 +180,23 @@ function init() {
   // 恢复生成分辨率设置到 UI
   if (elements.generateResolutionSelect) {
     elements.generateResolutionSelect.value = state.generateResolution.toString();
+  }
+
+  // 恢复网格大小设置
+  const savedGridSize = localStorage.getItem('grid_size');
+  if (savedGridSize) {
+    const gridSize = parseInt(savedGridSize, 10);
+    if (ALLOWED_GRID_SIZES.includes(gridSize)) {
+      state.gridSize = gridSize;
+    } else {
+      // 只在存在无效值时清理
+      localStorage.removeItem('grid_size');
+    }
+  }
+
+  // 恢复网格大小设置到 UI
+  if (elements.gridSizeSelect) {
+    elements.gridSizeSelect.value = state.gridSize.toString();
   }
 
   // 更新 UI 状态，确保按钮状态正确
@@ -276,6 +303,23 @@ function bindEvents() {
     });
   }
 
+  // 网格大小选择
+  if (elements.gridSizeSelect) {
+    elements.gridSizeSelect.addEventListener('change', (e) => {
+      const newGridSize = parseInt(e.target.value, 10);
+      // 验证选择的值是否有效
+      if (ALLOWED_GRID_SIZES.includes(newGridSize)) {
+        state.gridSize = newGridSize;
+        localStorage.setItem('grid_size', newGridSize.toString());
+        updateUI();
+      } else {
+        // 如果选择了无效值，恢复之前的值
+        console.warn('无效的网格大小选择:', newGridSize);
+        elements.gridSizeSelect.value = state.gridSize.toString();
+      }
+    });
+  }
+
   // 设为参考图
   if (elements.btnSetAsReference) {
     elements.btnSetAsReference.addEventListener('click', handleSetAsReference);
@@ -354,7 +398,7 @@ function updateUI() {
   if (elements.btnGenerate) {
     elements.btnGenerate.disabled = state.isGenerating || !isValid;
     const span = elements.btnGenerate.querySelector('span');
-    if (span) span.textContent = state.isGenerating ? '正在生成...' : '✨ 开始生成';
+    if (span) span.textContent = state.isGenerating ? '正在生成...' : `✨ 开始生成 (${state.gridSize}x${state.gridSize})`;
   }
 
   // 设为参考图按钮状态
@@ -412,16 +456,16 @@ async function handleGenerate() {
   try {
     let image;
     if (state.mode === 'text') {
-      image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.baseUrl || undefined, state.generateResolution);
+      image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     } else {
-      image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.baseUrl || undefined, state.generateResolution);
+      image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     }
 
     state.resultImage = image;
 
     // 自动切片
     showToast('生成成功，正在切片...', false);
-    const slices = await sliceImageGrid(image, 3, 3);
+    const slices = await sliceImageGrid(image, state.gridSize, state.gridSize);
     state.slices = slices;
 
     // 保存到历史
@@ -430,7 +474,8 @@ async function handleGenerate() {
       slices: slices,
       prompt: state.prompt,
       style: state.style,
-      mode: state.mode
+      mode: state.mode,
+      gridSize: state.gridSize
     });
 
     displayResult(image, slices);
@@ -458,6 +503,14 @@ function displayResult(fullImageBase64, slices) {
   // 显示切片
   elements.slicedSection.style.display = 'block';
   elements.slicedGrid.innerHTML = '';
+  
+  // 根据当前网格大小设置CSS类
+  elements.slicedGrid.className = 'sliced-grid';
+  if (state.gridSize === 3) {
+    elements.slicedGrid.classList.add('grid-3x3');
+  } else if (state.gridSize === 5) {
+    elements.slicedGrid.classList.add('grid-5x5');
+  }
 
   slices.forEach((sliceBase64, index) => {
     const item = document.createElement('div');
@@ -676,7 +729,13 @@ function renderHistoryUI() {
       state.slices = item.slices;
       state.prompt = item.prompt;
       state.mode = item.mode;
+      // 兼容旧记录，确保网格大小有效
+      const itemGridSize = item.gridSize || DEFAULT_GRID_SIZE;
+      state.gridSize = ALLOWED_GRID_SIZES.includes(itemGridSize) ? itemGridSize : DEFAULT_GRID_SIZE;
       elements.promptInput.value = item.prompt;
+      if (elements.gridSizeSelect) {
+        elements.gridSizeSelect.value = state.gridSize.toString();
+      }
 
       displayResult(item.resultImage, item.slices);
 

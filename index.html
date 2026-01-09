@@ -333,23 +333,38 @@
     /* 切片结果网格 */
     .sliced-grid {
       display: grid;
-      grid-template-columns: repeat(9, 1fr);
       gap: 12px;
       margin-top: 16px;
       overflow-x: auto;
       padding-bottom: 8px;
     }
 
-    /* 响应式调整：移动端改为 3x3，桌面端 1行9列或自动 */
+    /* 3x3 网格显示 */
+    .sliced-grid.grid-3x3 {
+      grid-template-columns: repeat(9, 1fr);
+    }
+
+    /* 5x5 网格显示 */
+    .sliced-grid.grid-5x5 {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    /* 响应式调整 */
     @media (min-width: 1200px) {
-      .sliced-grid {
-        grid-template-columns: repeat(9, 1fr);
+      .sliced-grid.grid-3x3 {
+        grid-template-columns: repeat(9, 1fr); /* 桌面端：9列横向显示 */
+      }
+      .sliced-grid.grid-5x5 {
+        grid-template-columns: repeat(5, 1fr); /* 桌面端：5列显示（25图标分5行） */
       }
     }
 
     @media (max-width: 1199px) {
-      .sliced-grid {
-        grid-template-columns: repeat(3, 1fr);
+      .sliced-grid.grid-3x3 {
+        grid-template-columns: repeat(3, 1fr); /* 移动端：3列显示（9图标分3行） */
+      }
+      .sliced-grid.grid-5x5 {
+        grid-template-columns: repeat(3, 1fr); /* 移动端：3列显示（25图标分多行） */
       }
     }
 
@@ -613,6 +628,18 @@
           </p>
         </div>
 
+        <!-- 网格大小选择 -->
+        <div class="form-group">
+          <label class="form-label">网格大小</label>
+          <select id="gridSizeSelect" class="input-field">
+            <option value="3">3 × 3 (9 个图标)</option>
+            <option value="5">5 × 5 (25 个图标)</option>
+          </select>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+            选择生成图标的网格布局
+          </p>
+        </div>
+
         <!-- 参考图上传 (仅风格迁移模式) -->
         <div id="referenceSection" class="form-group" style="display: none;">
           <label class="form-label">参考图片</label>
@@ -699,7 +726,7 @@
           <div class="placeholder-content">
             <div style="font-size: 3rem; margin-bottom: 16px;">🖼️</div>
             <p>在左侧配置并生成图标</p>
-            <p style="font-size: 0.85rem; opacity: 0.6;">支持 3x3 批量生成与自动切片</p>
+            <p style="font-size: 0.85rem; opacity: 0.6;">支持 3x3 / 5x5 批量生成与自动切片</p>
           </div>
           <img id="resultImage" style="display: none;">
           <div class="loader" id="loader" style="display: none;"></div>
