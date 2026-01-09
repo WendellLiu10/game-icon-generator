@@ -117,6 +117,10 @@ function init() {
   const savedDownloadSize = localStorage.getItem('download_size');
   if (savedDownloadSize && ALLOWED_DOWNLOAD_SIZES.includes(savedDownloadSize)) {
     state.downloadSize = savedDownloadSize;
+  } else {
+    // 如果保存的值无效，使用默认值并清除无效的存储
+    state.downloadSize = 'original';
+    localStorage.removeItem('download_size');
   }
 
   // 恢复上次提示词
@@ -218,6 +222,10 @@ function bindEvents() {
       if (ALLOWED_DOWNLOAD_SIZES.includes(newSize)) {
         state.downloadSize = newSize;
         localStorage.setItem('download_size', newSize);
+      } else {
+        // 如果选择了无效值，恢复之前的值
+        console.warn('无效的下载尺寸选择:', newSize);
+        elements.downloadSizeSelect.value = state.downloadSize;
       }
     });
   }
