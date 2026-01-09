@@ -3,16 +3,26 @@
  */
 
 import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js';
-import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail } from './core/image-utils.js';
+import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion } from './core/update-checker.js';
+
+// ============================================================================
+// 常量
+// ============================================================================
+
+// 批量下载时每次下载之间的延迟时间（毫秒）
+const BATCH_DOWNLOAD_DELAY_MS = 300;
+
+// 允许的下载尺寸选项
+const ALLOWED_DOWNLOAD_SIZES = ['original', '128', '256', '512'];
 
 // ============================================================================
 // 应用状态
 // ============================================================================
 
 const state = {
-  apiKey: localStorage.getItem('gemini_api_key') || '',
-  baseUrl: localStorage.getItem('gemini_base_url') || '',
+  apiKey: '',
+  baseUrl: '',
   mode: 'text',              // 'text' | 'style'
   style: '',                 // 当前选中的风格描述
   customStyle: '',           // 自定义风格
@@ -22,6 +32,7 @@ const state = {
   slices: [],                // 切片后的 9 张图 Base64 数组
   isGenerating: false,
   history: [],               // { id, timestamp, resultImage, slices, prompt, style }
+  downloadSize: 'original',  // 下载尺寸设置
 };
 
 // ============================================================================
@@ -66,6 +77,9 @@ function cacheDOM() {
     promptInput: document.getElementById('promptInput'),
     btnGenerate: document.getElementById('btnGenerate'),
 
+    // 下载尺寸选择
+    downloadSizeSelect: document.getElementById('downloadSizeSelect'),
+
     // 历史记录
     historyList: document.getElementById('historyList'),
 
@@ -96,7 +110,21 @@ function init() {
   loadHistory();
   bindEvents();
 
-  // 恢复上次状态
+  // 从 localStorage 恢复状态
+  state.apiKey = localStorage.getItem('gemini_api_key') || '';
+  state.baseUrl = localStorage.getItem('gemini_base_url') || '';
+  
+  // 恢复下载尺寸设置，并验证是否为有效值
+  const savedDownloadSize = localStorage.getItem('download_size');
+  if (savedDownloadSize && ALLOWED_DOWNLOAD_SIZES.includes(savedDownloadSize)) {
+    state.downloadSize = savedDownloadSize;
+  } else {
+    // 如果保存的值无效，使用默认值并清除无效的存储
+    state.downloadSize = 'original';
+    localStorage.removeItem('download_size');
+  }
+
+  // 恢复上次提示词
   const savedPrompt = localStorage.getItem('last_prompt');
   if (savedPrompt && elements.promptInput) elements.promptInput.value = savedPrompt;
   state.prompt = savedPrompt || '';
@@ -108,6 +136,11 @@ function init() {
       elements.customStyleInput.value = elements.styleSelect.value;
     }
     state.style = elements.customStyleInput.value;
+  }
+
+  // 恢复下载尺寸设置到 UI
+  if (elements.downloadSizeSelect) {
+    elements.downloadSizeSelect.value = state.downloadSize;
   }
 
   // 更新 UI 状态，确保按钮状态正确
@@ -179,18 +212,44 @@ function bindEvents() {
     });
   }
 
-  // 下载
-  if (elements.btnDownloadFull) {
-    elements.btnDownloadFull.addEventListener('click', () => {
-      if (state.resultImage) downloadImage(state.resultImage, 'icon-grid-full.png');
+  // 下载尺寸选择
+  if (elements.downloadSizeSelect) {
+    elements.downloadSizeSelect.addEventListener('change', (e) => {
+      const newSize = e.target.value;
+      // 验证选择的值是否有效
+      if (ALLOWED_DOWNLOAD_SIZES.includes(newSize)) {
+        state.downloadSize = newSize;
+        localStorage.setItem('download_size', newSize);
+      } else {
+        // 如果选择了无效值，恢复之前的值
+        console.warn('无效的下载尺寸选择:', newSize);
+        elements.downloadSizeSelect.value = state.downloadSize;
+      }
     });
   }
 
+  // 设为参考图
   if (elements.btnSetAsReference) {
     elements.btnSetAsReference.addEventListener('click', handleSetAsReference);
   }
 
-  if (elements.btnDownloadAllSlices) elements.btnDownloadAllSlices.addEventListener('click', handleDownloadAllSlices);
+  // 下载
+  if (elements.btnDownloadFull) {
+    elements.btnDownloadFull.addEventListener('click', async () => {
+      if (state.resultImage) await downloadImage(state.resultImage, 'icon-grid-full.png');
+    });
+  }
+
+  if (elements.btnDownloadAllSlices) {
+    elements.btnDownloadAllSlices.addEventListener('click', async () => {
+      try {
+        await handleDownloadAllSlices();
+      } catch (error) {
+        console.error('批量下载失败:', error);
+        showToast('批量下载失败', true);
+      }
+    });
+  }
 }
 
 // ============================================================================
@@ -347,27 +406,28 @@ function displayResult(fullImageBase64, slices) {
       </div>
     `;
 
-    item.querySelector('button').addEventListener('click', (e) => {
+    item.querySelector('button').addEventListener('click', async (e) => {
       e.stopPropagation();
-      downloadImage(sliceBase64, `icon-${index + 1}.png`);
+      await downloadImage(sliceBase64, `icon-${index + 1}.png`);
     });
 
     elements.slicedGrid.appendChild(item);
   });
 }
 
-function handleDownloadAllSlices() {
+async function handleDownloadAllSlices() {
   if (!state.slices.length) return;
 
-  // 简单的连续下载
-  let delay = 0;
-  state.slices.forEach((slice, index) => {
-    setTimeout(() => {
-      downloadImage(slice, `icon-${index + 1}.png`);
-    }, delay);
-    delay += 300; // 间隔 300ms 防止浏览器拦截
-  });
   showToast('正在开始批量下载...', false);
+  
+  // 使用顺序下载以避免浏览器阻止
+  for (let index = 0; index < state.slices.length; index++) {
+    await downloadImage(state.slices[index], `icon-${index + 1}.png`);
+    // 在下载之间添加延迟以防止浏览器拦截
+    if (index < state.slices.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_DOWNLOAD_DELAY_MS));
+    }
+  }
 }
 
 /**
@@ -571,10 +631,25 @@ function saveApiSettings() {
   showToast('设置已保存');
 }
 
-function downloadImage(base64, filename) {
+async function downloadImage(base64, filename) {
+  let imageToDownload = base64;
+  
+  // 如果选择了特定尺寸（非原始尺寸），则调整图片大小
+  if (state.downloadSize !== 'original') {
+    const size = parseInt(state.downloadSize, 10);
+    try {
+      imageToDownload = await resizeToIcon(base64, size);
+    } catch (error) {
+      console.error('调整图片尺寸失败:', error);
+      showToast('调整尺寸失败，将下载原始尺寸', true);
+      // 出错时使用原始图片
+      imageToDownload = base64;
+    }
+  }
+  
   const link = document.createElement('a');
   link.download = filename;
-  link.href = getDataUrl(base64);
+  link.href = getDataUrl(imageToDownload);
   link.click();
 }
 
