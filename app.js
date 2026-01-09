@@ -458,6 +458,7 @@ function handleSetAsReference() {
   if (!state.resultImage) return;
   setImageAsReference(state.resultImage);
 }
+}
 
 // ============================================================================
 // 历史记录
