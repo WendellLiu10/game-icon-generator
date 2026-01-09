@@ -599,6 +599,7 @@ async function addToHistory(item) {
     prompt: item.prompt,
     style: item.style,
     mode: item.mode,
+    gridSize: item.gridSize,
     resultImage: item.resultImage,  // 完整保存到 localStorage
     slices: item.slices             // 完整保存到 localStorage
   };
