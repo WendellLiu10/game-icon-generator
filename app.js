@@ -354,15 +354,16 @@ function displayResult(fullImageBase64, slices) {
 async function handleDownloadAllSlices() {
   if (!state.slices.length) return;
 
-  // 简单的连续下载
-  let delay = 0;
-  for (let index = 0; index < state.slices.length; index++) {
-    setTimeout(async () => {
-      await downloadImage(state.slices[index], `icon-${index + 1}.png`);
-    }, delay);
-    delay += 300; // 间隔 300ms 防止浏览器拦截
-  }
   showToast('正在开始批量下载...', false);
+  
+  // 使用顺序下载以避免浏览器阻止
+  for (let index = 0; index < state.slices.length; index++) {
+    await downloadImage(state.slices[index], `icon-${index + 1}.png`);
+    // 在下载之间添加延迟以防止浏览器拦截
+    if (index < state.slices.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
 }
 
 // ============================================================================
@@ -528,11 +529,16 @@ async function downloadImage(base64, filename) {
   // 如果选择了特定尺寸（非原始尺寸），则调整图片大小
   if (state.downloadSize !== 'original') {
     const size = parseInt(state.downloadSize, 10);
-    try {
-      imageToDownload = await resizeToIcon(base64, size);
-    } catch (error) {
-      console.error('调整图片尺寸失败:', error);
-      showToast('调整尺寸失败，将下载原始尺寸', true);
+    // 验证尺寸是否为有效数字
+    if (!isNaN(size) && size > 0) {
+      try {
+        imageToDownload = await resizeToIcon(base64, size);
+      } catch (error) {
+        console.error('调整图片尺寸失败:', error);
+        showToast('调整尺寸失败，将下载原始尺寸', true);
+      }
+    } else {
+      console.warn('无效的下载尺寸设置:', state.downloadSize);
     }
   }
   
