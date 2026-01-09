@@ -3,7 +3,7 @@
  */
 
 import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js';
-import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail } from './core/image-utils.js';
+import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion } from './core/update-checker.js';
 
 // ============================================================================
@@ -22,6 +22,7 @@ const state = {
   slices: [],                // 切片后的 9 张图 Base64 数组
   isGenerating: false,
   history: [],               // { id, timestamp, resultImage, slices, prompt, style }
+  downloadSize: localStorage.getItem('download_size') || 'original', // 下载尺寸设置
 };
 
 // ============================================================================
@@ -66,6 +67,9 @@ function cacheDOM() {
     promptInput: document.getElementById('promptInput'),
     btnGenerate: document.getElementById('btnGenerate'),
 
+    // 下载尺寸选择
+    downloadSizeSelect: document.getElementById('downloadSizeSelect'),
+
     // 历史记录
     historyList: document.getElementById('historyList'),
 
@@ -107,6 +111,11 @@ function init() {
       elements.customStyleInput.value = elements.styleSelect.value;
     }
     state.style = elements.customStyleInput.value;
+  }
+
+  // 恢复下载尺寸设置
+  if (elements.downloadSizeSelect) {
+    elements.downloadSizeSelect.value = state.downloadSize;
   }
 
   // 更新 UI 状态，确保按钮状态正确
@@ -181,10 +190,18 @@ function bindEvents() {
     });
   }
 
+  // 下载尺寸选择
+  if (elements.downloadSizeSelect) {
+    elements.downloadSizeSelect.addEventListener('change', (e) => {
+      state.downloadSize = e.target.value;
+      localStorage.setItem('download_size', state.downloadSize);
+    });
+  }
+
   // 下载
   if (elements.btnDownloadFull) {
-    elements.btnDownloadFull.addEventListener('click', () => {
-      if (state.resultImage) downloadImage(state.resultImage, 'icon-grid-full.png');
+    elements.btnDownloadFull.addEventListener('click', async () => {
+      if (state.resultImage) await downloadImage(state.resultImage, 'icon-grid-full.png');
     });
   }
 
@@ -325,26 +342,26 @@ function displayResult(fullImageBase64, slices) {
       </div>
     `;
 
-    item.querySelector('button').addEventListener('click', (e) => {
+    item.querySelector('button').addEventListener('click', async (e) => {
       e.stopPropagation();
-      downloadImage(sliceBase64, `icon-${index + 1}.png`);
+      await downloadImage(sliceBase64, `icon-${index + 1}.png`);
     });
 
     elements.slicedGrid.appendChild(item);
   });
 }
 
-function handleDownloadAllSlices() {
+async function handleDownloadAllSlices() {
   if (!state.slices.length) return;
 
   // 简单的连续下载
   let delay = 0;
-  state.slices.forEach((slice, index) => {
-    setTimeout(() => {
-      downloadImage(slice, `icon-${index + 1}.png`);
+  for (let index = 0; index < state.slices.length; index++) {
+    setTimeout(async () => {
+      await downloadImage(state.slices[index], `icon-${index + 1}.png`);
     }, delay);
     delay += 300; // 间隔 300ms 防止浏览器拦截
-  });
+  }
   showToast('正在开始批量下载...', false);
 }
 
@@ -505,10 +522,23 @@ function saveApiSettings() {
   showToast('设置已保存');
 }
 
-function downloadImage(base64, filename) {
+async function downloadImage(base64, filename) {
+  let imageToDownload = base64;
+  
+  // 如果选择了特定尺寸（非原始尺寸），则调整图片大小
+  if (state.downloadSize !== 'original') {
+    const size = parseInt(state.downloadSize, 10);
+    try {
+      imageToDownload = await resizeToIcon(base64, size);
+    } catch (error) {
+      console.error('调整图片尺寸失败:', error);
+      showToast('调整尺寸失败，将下载原始尺寸', true);
+    }
+  }
+  
   const link = document.createElement('a');
   link.download = filename;
-  link.href = getDataUrl(base64);
+  link.href = getDataUrl(imageToDownload);
   link.click();
 }
 
