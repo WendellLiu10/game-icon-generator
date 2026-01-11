@@ -26,69 +26,122 @@ const ERROR_MESSAGES = {
 // ============================================================================
 
 const PROMPT_TEMPLATES = {
-  // 文字生成模式
-  textMode: `Create a single image containing a {GRID_SIZE}x{GRID_SIZE} grid of {ICON_COUNT} game icons.
+  // 文字生成模式 (Grid)
+  textModeGrid: `Create a single image containing a {GRID_SIZE}x{GRID_SIZE} grid of {ICON_COUNT} game {SUBJECT}s.
 
 Requirements:
 - The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
 - The image should have a pure WHITE background
-- Arrange exactly {ICON_COUNT} icons in a {GRID_SIZE} rows x {GRID_SIZE} columns grid layout
-- Each icon should be centered in its grid cell with equal spacing
-- Leave safe margins around each icon (about 10% padding)
-- All {ICON_COUNT} icons should follow the same visual style: {STYLE}
-- Each icon should be a variation of the theme: {USER_PROMPT}
-- The icons should be distinct but cohesive in style
-- Make sure all icons are properly aligned and evenly spaced
+- Arrange exactly {ICON_COUNT} {SUBJECT}s in a {GRID_SIZE} rows x {GRID_SIZE} columns grid layout
+- Each {SUBJECT} should be centered in its grid cell with equal spacing
+- Leave safe margins around each {SUBJECT} (about 10% padding)
+- All {ICON_COUNT} {SUBJECT}s should follow the same visual style: {STYLE}
+- Each {SUBJECT} should be a variation of the theme: {USER_PROMPT}
+- The {SUBJECT}s should be distinct but cohesive in style
+- Make sure all {SUBJECT}s are properly aligned and evenly spaced
 
-Output a single square image with this {GRID_SIZE}x{GRID_SIZE} icon grid at {RESOLUTION}x{RESOLUTION} resolution.`,
+Output a single square image with this {GRID_SIZE}x{GRID_SIZE} {SUBJECT} grid at {RESOLUTION}x{RESOLUTION} resolution.`,
 
-  // 风格迁移模式
-  styleMode: `Create a single image containing a {GRID_SIZE}x{GRID_SIZE} grid of {ICON_COUNT} game icons, matching the EXACT visual style of the reference image.
+  // 文字生成模式 (Single 1x1)
+  textModeSingle: `Create a single game {SUBJECT} image.
 
 Requirements:
 - The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
 - The image should have a pure WHITE background
-- Arrange exactly {ICON_COUNT} icons in a {GRID_SIZE} rows x {GRID_SIZE} columns grid layout
-- Each icon should be centered in its grid cell with equal spacing
-- Leave safe margins around each icon (about 10% padding)
+- The {SUBJECT} should be centered in the image
+- Leave safe margins around the {SUBJECT} (about 10% padding)
+- The {SUBJECT} should follow the visual style: {STYLE}
+- The {SUBJECT} should match the theme: {USER_PROMPT}
+- Ensure high quality and detail suitable for a game asset
+
+Output a single square image of the {SUBJECT} at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 风格迁移模式 (Grid)
+  styleModeGrid: `Create a single image containing a {GRID_SIZE}x{GRID_SIZE} grid of {ICON_COUNT} game {SUBJECT}s, matching the EXACT visual style of the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- The image should have a pure WHITE background
+- Arrange exactly {ICON_COUNT} {SUBJECT}s in a {GRID_SIZE} rows x {GRID_SIZE} columns grid layout
+- Each {SUBJECT} should be centered in its grid cell with equal spacing
+- Leave safe margins around each {SUBJECT} (about 10% padding)
 - Match the art style, color palette, line work, and level of detail from the reference image PRECISELY
-- Each icon should be a variation of the theme: {USER_PROMPT}
-- The icons should be distinct but cohesive in style
-- Make sure all icons are properly aligned and evenly spaced
+- Each {SUBJECT} should be a variation of the theme: {USER_PROMPT}
+- The {SUBJECT}s should be distinct but cohesive in style
+- Make sure all {SUBJECT}s are properly aligned and evenly spaced
 
-Output a single square image with this {GRID_SIZE}x{GRID_SIZE} icon grid at {RESOLUTION}x{RESOLUTION} resolution.`,
+Output a single square image with this {GRID_SIZE}x{GRID_SIZE} {SUBJECT} grid at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 风格迁移模式 (Single 1x1)
+  styleModeSingle: `Create a single game {SUBJECT} image, matching the EXACT visual style of the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- The image should have a pure WHITE background
+- The {SUBJECT} should be centered in the image
+- Leave safe margins around the {SUBJECT} (about 10% padding)
+- Match the art style, color palette, line work, and level of detail from the reference image PRECISELY
+- The {SUBJECT} should match the theme: {USER_PROMPT}
+- Ensure high quality and detail suitable for a game asset
+
+Output a single square image of the {SUBJECT} at {RESOLUTION}x{RESOLUTION} resolution.`
 };
 
 /**
  * 构建图标网格 Prompt（文字模式）
  * @param {string} userPrompt - 用户描述
  * @param {string} style - 风格描述
+ * @param {string} subject - 生成主体 (icon, character, etc.)
  * @param {number} resolution - 分辨率 (1024/2048/4096)
- * @param {number} gridSize - 网格大小 (3 或 5)
+ * @param {number} gridSize - 网格大小 (1, 3 或 5)
  */
-function buildGridPrompt(userPrompt, style = 'game asset style', resolution = 1024, gridSize = 3) {
-  const iconCount = gridSize * gridSize;
-  return PROMPT_TEMPLATES.textMode
-    .replace(/{GRID_SIZE}/g, gridSize.toString())
-    .replace(/{ICON_COUNT}/g, iconCount.toString())
-    .replace('{USER_PROMPT}', userPrompt)
-    .replace('{STYLE}', style)
-    .replace(/{RESOLUTION}/g, resolution.toString());
+function buildGridPrompt(userPrompt, style = 'game asset style', subject = 'icon', resolution = 1024, gridSize = 3) {
+  // 确保 subject 不为空
+  const safeSubject = subject || 'icon';
+
+  if (gridSize === 1) {
+    return PROMPT_TEMPLATES.textModeSingle
+      .replace(/{SUBJECT}/g, safeSubject)
+      .replace('{USER_PROMPT}', userPrompt)
+      .replace('{STYLE}', style)
+      .replace(/{RESOLUTION}/g, resolution.toString());
+  } else {
+    const iconCount = gridSize * gridSize;
+    return PROMPT_TEMPLATES.textModeGrid
+      .replace(/{GRID_SIZE}/g, gridSize.toString())
+      .replace(/{ICON_COUNT}/g, iconCount.toString())
+      .replace(/{SUBJECT}/g, safeSubject)
+      .replace('{USER_PROMPT}', userPrompt)
+      .replace('{STYLE}', style)
+      .replace(/{RESOLUTION}/g, resolution.toString());
+  }
 }
 
 /**
  * 构建风格迁移的网格 Prompt
  * @param {string} userPrompt - 用户描述
+ * @param {string} subject - 生成主体 (icon, character, etc.)
  * @param {number} resolution - 分辨率 (1024/2048/4096)
- * @param {number} gridSize - 网格大小 (3 或 5)
+ * @param {number} gridSize - 网格大小 (1, 3 或 5)
  */
-function buildStyleGridPrompt(userPrompt, resolution = 1024, gridSize = 3) {
-  const iconCount = gridSize * gridSize;
-  return PROMPT_TEMPLATES.styleMode
-    .replace(/{GRID_SIZE}/g, gridSize.toString())
-    .replace(/{ICON_COUNT}/g, iconCount.toString())
-    .replace('{USER_PROMPT}', userPrompt)
-    .replace(/{RESOLUTION}/g, resolution.toString());
+function buildStyleGridPrompt(userPrompt, subject = 'icon', resolution = 1024, gridSize = 3) {
+  // 确保 subject 不为空
+  const safeSubject = subject || 'icon';
+
+  if (gridSize === 1) {
+    return PROMPT_TEMPLATES.styleModeSingle
+      .replace(/{SUBJECT}/g, safeSubject)
+      .replace('{USER_PROMPT}', userPrompt)
+      .replace(/{RESOLUTION}/g, resolution.toString());
+  } else {
+    const iconCount = gridSize * gridSize;
+    return PROMPT_TEMPLATES.styleModeGrid
+      .replace(/{GRID_SIZE}/g, gridSize.toString())
+      .replace(/{ICON_COUNT}/g, iconCount.toString())
+      .replace(/{SUBJECT}/g, safeSubject)
+      .replace('{USER_PROMPT}', userPrompt)
+      .replace(/{RESOLUTION}/g, resolution.toString());
+  }
 }
 
 /**
@@ -134,22 +187,23 @@ function getImageSize(resolution) {
  * @param {string} apiKey - Gemini API Key
  * @param {string} prompt - 用户描述
  * @param {string} style - 视觉风格描述
+ * @param {string} subject - 生成主体
  * @param {string} [baseUrl] - 可选的自定义 API Base URL
  * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
- * @param {number} [gridSize=3] - 网格大小 (3 或 5)
+ * @param {number} [gridSize=3] - 网格大小 (1, 3 或 5)
  * @returns {Promise<string>} - Base64 图像数据
  */
-export async function generateIconGrid(apiKey, prompt, style, baseUrl, resolution = 1024, gridSize = 3) {
+export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, resolution = 1024, gridSize = 3) {
   const url = baseUrl || CONFIG.baseUrl;
   const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
   
   console.log('  🔗 [Gemini API] 请求 URL:', endpoint);
-  console.log('  📐 [Gemini API] 模式: 文字生成，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`);
+  console.log('  📐 [Gemini API] 模式: 文字生成，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`, '主体:', subject);
   
   const requestBody = JSON.stringify({
     contents: [{
       parts: [
-        { text: buildGridPrompt(prompt, style, resolution, gridSize) }
+        { text: buildGridPrompt(prompt, style, subject, resolution, gridSize) }
       ]
     }],
     generationConfig: {
@@ -199,17 +253,18 @@ export async function generateIconGrid(apiKey, prompt, style, baseUrl, resolutio
  * @param {string} apiKey - Gemini API Key
  * @param {string} referenceImageBase64 - 参考图的 Base64 数据
  * @param {string} prompt - 用户描述
+ * @param {string} subject - 生成主体
  * @param {string} [baseUrl] - 可选的自定义 API Base URL
  * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
- * @param {number} [gridSize=3] - 网格大小 (3 或 5)
+ * @param {number} [gridSize=3] - 网格大小 (1, 3 或 5)
  * @returns {Promise<string>} - Base64 图像数据
  */
-export async function generateIconGridWithReference(apiKey, referenceImageBase64, prompt, baseUrl, resolution = 1024, gridSize = 3) {
+export async function generateIconGridWithReference(apiKey, referenceImageBase64, prompt, subject, baseUrl, resolution = 1024, gridSize = 3) {
   const url = baseUrl || CONFIG.baseUrl;
   const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
   
   console.log('  🔗 [Gemini API] 请求 URL:', endpoint);
-  console.log('  📐 [Gemini API] 模式: 风格迁移，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`);
+  console.log('  📐 [Gemini API] 模式: 风格迁移，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`, '主体:', subject);
   console.log('  🖼️ [Gemini API] 参考图大小:', (referenceImageBase64.length / 1024).toFixed(2), 'KB (Base64)');
   
   const requestBody = JSON.stringify({
@@ -221,7 +276,7 @@ export async function generateIconGridWithReference(apiKey, referenceImageBase64
             data: referenceImageBase64,
           },
         },
-        { text: buildStyleGridPrompt(prompt, resolution, gridSize) }
+        { text: buildStyleGridPrompt(prompt, subject, resolution, gridSize) }
       ]
     }],
     generationConfig: {

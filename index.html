@@ -41,6 +41,18 @@
         </div>
 
         <!-- 风格选择 (通用) -->
+        <!-- 生成主体选择 -->
+        <div class="form-group">
+          <label class="form-label">生成主体</label>
+          <select id="subjectSelect" class="input-field">
+            <option value="icon">图标 (Icon)</option>
+            <option value="character">角色 (Character)</option>
+            <option value="equipment">装备 (Equipment)</option>
+            <option value="scene">场景 (Scene)</option>
+            <option value="custom">自定义 (Custom)</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label class="form-label">视觉风格 (预设)</label>
           <select id="styleSelect" class="input-field">
@@ -75,8 +87,9 @@
         <div class="form-group">
           <label class="form-label">网格大小</label>
           <select id="gridSizeSelect" class="input-field">
-            <option value="3">3 × 3 (9 个图标)</option>
-            <option value="5">5 × 5 (25 个图标)</option>
+            <option value="1">1 × 1 (单图)</option>
+            <option value="3">3 × 3 (9 个图)</option>
+            <option value="5">5 × 5 (25 个图)</option>
           </select>
           <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
             选择生成图标的网格布局
@@ -164,8 +177,8 @@
         <div class="preview-canvas empty" id="previewArea">
           <div class="placeholder-content">
             <div style="font-size: 3rem; margin-bottom: 16px;">🖼️</div>
-            <p>在左侧配置并生成图标</p>
-            <p style="font-size: 0.85rem; opacity: 0.6;">支持 3x3 / 5x5 批量生成与自动切片</p>
+            <p>在左侧配置并生成内容</p>
+            <p style="font-size: 0.85rem; opacity: 0.6;">支持 1x1 / 3x3 / 5x5 生成与自动切片</p>
           </div>
           <img id="resultImage" style="display: none;">
           <div class="loader" id="loader" style="display: none;"></div>

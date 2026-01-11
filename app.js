@@ -18,7 +18,7 @@ const BATCH_DOWNLOAD_DELAY_MS = 300;
 const ALLOWED_DOWNLOAD_SIZES = ['original', '128', '256', '512'];
 
 // 允许的网格大小选项
-const ALLOWED_GRID_SIZES = [3, 5];
+const ALLOWED_GRID_SIZES = [1, 3, 5];
 
 // 默认网格大小
 const DEFAULT_GRID_SIZE = 3;
@@ -35,6 +35,7 @@ const state = {
   apiKey: '',
   baseUrl: '',
   mode: 'text',              // 'text' | 'style'
+  subject: 'icon',           // 生成主体: 'icon' | 'character' | 'equipment' | 'scene' | 'custom'
   style: '',                 // 当前选中的风格描述
   customStyle: '',           // 自定义风格
   referenceImage: null,      // Base64
@@ -45,7 +46,7 @@ const state = {
   history: [],               // { id, timestamp, resultImage, slices, prompt, style, gridSize }
   downloadSize: 'original',  // 下载尺寸设置
   generateResolution: 1024,  // 生成分辨率 (1024/2048/4096)
-  gridSize: DEFAULT_GRID_SIZE, // 网格大小 (3 或 5)
+  gridSize: DEFAULT_GRID_SIZE, // 网格大小 (1, 3 或 5)
 };
 
 // ============================================================================
@@ -79,6 +80,7 @@ function cacheDOM() {
 
     // 控制面板
     tabs: document.querySelectorAll('.tab'),
+    subjectSelect: document.getElementById('subjectSelect'),
     styleSelect: document.getElementById('styleSelect'),
     customStyleInput: document.getElementById('customStyleInput'),
     referenceSection: document.getElementById('referenceSection'),
@@ -152,6 +154,15 @@ async function init() {
   if (savedPrompt && elements.promptInput) elements.promptInput.value = savedPrompt;
   state.prompt = savedPrompt || '';
 
+  // 恢复主体选择
+  const savedSubject = localStorage.getItem('subject_type');
+  if (savedSubject && ['icon', 'character', 'equipment', 'scene', 'custom'].includes(savedSubject)) {
+    state.subject = savedSubject;
+    if (elements.subjectSelect) {
+      elements.subjectSelect.value = state.subject;
+    }
+  }
+
   // 默认风格
   if (elements.styleSelect && elements.customStyleInput) {
     // 初始化：如果输入框为空，则填入默认下拉菜单的值
@@ -223,6 +234,14 @@ function bindEvents() {
       tab.addEventListener('click', (e) => {
         switchToMode(e.target.dataset.mode);
       });
+    });
+  }
+
+  // 主体选择
+  if (elements.subjectSelect) {
+    elements.subjectSelect.addEventListener('change', (e) => {
+      state.subject = e.target.value;
+      localStorage.setItem('subject_type', state.subject);
     });
   }
 
@@ -463,9 +482,9 @@ async function handleGenerate() {
     console.log('🌐 [API 调用] 开始请求 Gemini API...');
 
     if (state.mode === 'text') {
-      image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.baseUrl || undefined, state.generateResolution, state.gridSize);
+      image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     } else {
-      image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.baseUrl || undefined, state.generateResolution, state.gridSize);
+      image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     }
 
     const apiEndTime = Date.now();
@@ -478,7 +497,15 @@ async function handleGenerate() {
     const sliceStartTime = Date.now();
     console.log('✂️ [切片] 开始切片处理...');
     showToast('生成成功，正在切片...', false);
-    const slices = await sliceImageGrid(image, state.gridSize, state.gridSize);
+
+    let slices = [];
+    if (state.gridSize === 1) {
+      // 1x1 模式，直接把整张图作为唯一的切片
+      slices = [image];
+    } else {
+      slices = await sliceImageGrid(image, state.gridSize, state.gridSize);
+    }
+
     state.slices = slices;
     const sliceEndTime = Date.now();
     console.log(`✅ [切片] 完成，耗时: ${((sliceEndTime - sliceStartTime) / 1000).toFixed(2)}s，共 ${slices.length} 个切片`);
@@ -491,6 +518,7 @@ async function handleGenerate() {
       slices: slices,
       prompt: state.prompt,
       style: state.style,
+      subject: state.subject,
       mode: state.mode,
       gridSize: state.gridSize
     });
@@ -632,6 +660,7 @@ async function addToHistory(item) {
     prompt: item.prompt,
     style: item.style,
     mode: item.mode,
+    subject: item.subject || 'icon',
     gridSize: item.gridSize,
     resultImage: item.resultImage,
     slices: item.slices
@@ -764,12 +793,18 @@ function renderHistoryUI() {
         state.slices = item.slices;
         state.prompt = item.prompt;
         state.mode = item.mode;
+        state.subject = item.subject || 'icon';
+
         // 兼容旧记录，确保网格大小有效
         const itemGridSize = item.gridSize || DEFAULT_GRID_SIZE;
         state.gridSize = ALLOWED_GRID_SIZES.includes(itemGridSize) ? itemGridSize : DEFAULT_GRID_SIZE;
+
         elements.promptInput.value = item.prompt;
         if (elements.gridSizeSelect) {
           elements.gridSizeSelect.value = state.gridSize.toString();
+        }
+        if (elements.subjectSelect) {
+          elements.subjectSelect.value = state.subject;
         }
 
         displayResult(item.resultImage, item.slices);
