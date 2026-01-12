@@ -484,6 +484,9 @@ async function handleGenerate() {
     if (state.mode === 'text') {
       image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     } else {
+      if (!state.referenceImage) {
+        throw new Error('请先上传参考图片');
+      }
       image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
     }
 

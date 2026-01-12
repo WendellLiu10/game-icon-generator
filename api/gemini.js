@@ -260,6 +260,10 @@ export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, 
  * @returns {Promise<string>} - Base64 图像数据
  */
 export async function generateIconGridWithReference(apiKey, referenceImageBase64, prompt, subject, baseUrl, resolution = 1024, gridSize = 3) {
+  if (!referenceImageBase64) {
+    throw new Error('参考图数据为空，请先上传参考图片');
+  }
+
   const url = baseUrl || CONFIG.baseUrl;
   const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
   
