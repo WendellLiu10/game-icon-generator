@@ -174,43 +174,31 @@ async function handleApiError(response) {
  * @returns {string} - imageSize 格式 ("1K"/"2K"/"4K")
  */
 function getImageSize(resolution) {
-  const sizeMap = {
-    1024: '1K',
-    2048: '2K',
-    4096: '4K'
-  };
+  const sizeMap = { 1024: '1K', 2048: '2K', 4096: '4K' };
   return sizeMap[resolution] || '1K';
 }
 
 /**
- * 生成图标网格图片（纯文字模式）
- * @param {string} apiKey - Gemini API Key
- * @param {string} prompt - 用户描述
- * @param {string} style - 视觉风格描述
- * @param {string} subject - 生成主体
- * @param {string} [baseUrl] - 可选的自定义 API Base URL
- * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
- * @param {number} [gridSize=3] - 网格大小 (1, 3 或 5)
+ * 发送生成请求到 Gemini API
+ * @param {string} apiKey - API Key
+ * @param {string} baseUrl - API Base URL
+ * @param {Array} parts - 请求内容 parts 数组
+ * @param {number} resolution - 生成分辨率
+ * @param {string} logPrefix - 日志前缀描述
  * @returns {Promise<string>} - Base64 图像数据
  */
-export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, resolution = 1024, gridSize = 3) {
+async function sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix) {
   const url = baseUrl || CONFIG.baseUrl;
   const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
-  
+
   console.log('  🔗 [Gemini API] 请求 URL:', endpoint);
-  console.log('  📐 [Gemini API] 模式: 文字生成，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`, '主体:', subject);
-  
+  console.log('  📐 [Gemini API]', logPrefix);
+
   const requestBody = JSON.stringify({
-    contents: [{
-      parts: [
-        { text: buildGridPrompt(prompt, style, subject, resolution, gridSize) }
-      ]
-    }],
+    contents: [{ parts }],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
-      imageConfig: {
-        imageSize: getImageSize(resolution)
-      }
+      imageConfig: { imageSize: getImageSize(resolution) }
     }
   });
 
@@ -227,7 +215,7 @@ export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, 
     body: requestBody,
   });
   const fetchEndTime = Date.now();
-  
+
   console.log(`  📥 [Gemini API] 收到响应，状态: ${response.status}，网络请求耗时: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}s`);
 
   if (!response.ok) {
@@ -241,11 +229,28 @@ export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, 
     console.error('  ❌ [Gemini API] 响应为空');
     throw new Error('API 返回空响应');
   }
-  
+
   console.log('  ✅ [Gemini API] 响应数据大小:', (text.length / 1024).toFixed(2), 'KB');
 
   const data = JSON.parse(text);
   return extractImageFromResponse(data);
+}
+
+/**
+ * 生成图标网格图片（纯文字模式）
+ * @param {string} apiKey - Gemini API Key
+ * @param {string} prompt - 用户描述
+ * @param {string} style - 视觉风格描述
+ * @param {string} subject - 生成主体
+ * @param {string} [baseUrl] - 可选的自定义 API Base URL
+ * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
+ * @param {number} [gridSize=3] - 网格大小 (1, 3 或 5)
+ * @returns {Promise<string>} - Base64 图像数据
+ */
+export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, resolution = 1024, gridSize = 3) {
+  const parts = [{ text: buildGridPrompt(prompt, style, subject, resolution, gridSize) }];
+  const logPrefix = `模式: 文字生成，分辨率: ${resolution}，网格: ${gridSize}x${gridSize}，主体: ${subject}`;
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix);
 }
 
 /**
@@ -264,65 +269,14 @@ export async function generateIconGridWithReference(apiKey, referenceImageBase64
     throw new Error('参考图数据为空，请先上传参考图片');
   }
 
-  const url = baseUrl || CONFIG.baseUrl;
-  const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
-  
-  console.log('  🔗 [Gemini API] 请求 URL:', endpoint);
-  console.log('  📐 [Gemini API] 模式: 风格迁移，分辨率:', resolution, '网格:', `${gridSize}x${gridSize}`, '主体:', subject);
   console.log('  🖼️ [Gemini API] 参考图大小:', (referenceImageBase64.length / 1024).toFixed(2), 'KB (Base64)');
-  
-  const requestBody = JSON.stringify({
-    contents: [{
-      parts: [
-        {
-          inlineData: {
-            mimeType: 'image/png',
-            data: referenceImageBase64,
-          },
-        },
-        { text: buildStyleGridPrompt(prompt, subject, resolution, gridSize) }
-      ]
-    }],
-    generationConfig: {
-      responseModalities: ['IMAGE', 'TEXT'],
-      imageConfig: {
-        imageSize: getImageSize(resolution)
-      }
-    }
-  });
 
-  console.log('  📤 [Gemini API] 请求体大小:', (requestBody.length / 1024).toFixed(2), 'KB');
-  console.log('  ⏳ [Gemini API] 发送请求中...（如果长时间无响应请检查网络）');
-
-  const fetchStartTime = Date.now();
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: requestBody,
-  });
-  const fetchEndTime = Date.now();
-  
-  console.log(`  📥 [Gemini API] 收到响应，状态: ${response.status}，网络请求耗时: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}s`);
-
-  if (!response.ok) {
-    console.error('  ❌ [Gemini API] 请求失败，状态码:', response.status);
-    await handleApiError(response);
-  }
-
-  console.log('  📝 [Gemini API] 正在读取响应数据...');
-  const text = await response.text();
-  if (!text) {
-    console.error('  ❌ [Gemini API] 响应为空');
-    throw new Error('API 返回空响应');
-  }
-  
-  console.log('  ✅ [Gemini API] 响应数据大小:', (text.length / 1024).toFixed(2), 'KB');
-
-  const data = JSON.parse(text);
-  return extractImageFromResponse(data);
+  const parts = [
+    { inlineData: { mimeType: 'image/png', data: referenceImageBase64 } },
+    { text: buildStyleGridPrompt(prompt, subject, resolution, gridSize) }
+  ];
+  const logPrefix = `模式: 风格迁移，分辨率: ${resolution}，网格: ${gridSize}x${gridSize}，主体: ${subject}`;
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix);
 }
 
 /**

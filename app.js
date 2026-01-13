@@ -129,88 +129,67 @@ function cacheDOM() {
 // 初始化
 // ============================================================================
 
-async function init() {
-  cacheDOM();
-  await loadHistory();  // 等待 IndexedDB 历史加载完成
-  bindEvents();
-  loadAndDisplayVersion(); // 加载并显示版本
+/**
+ * 从 localStorage 恢复设置，支持验证和默认值
+ * @param {string} key - localStorage 键名
+ * @param {Array} allowedValues - 允许的值列表
+ * @param {*} defaultValue - 默认值
+ * @param {function} [parser] - 可选的值解析函数
+ * @returns {*} 恢复的值或默认值
+ */
+function restoreFromStorage(key, allowedValues, defaultValue, parser = null) {
+  const saved = localStorage.getItem(key);
+  if (!saved) return defaultValue;
 
-  // 从 localStorage 恢复状态
+  const value = parser ? parser(saved) : saved;
+  if (allowedValues.includes(value)) {
+    return value;
+  }
+  localStorage.removeItem(key);
+  return defaultValue;
+}
+
+/**
+ * 恢复所有状态到 state 对象
+ */
+function restoreState() {
   state.apiKey = localStorage.getItem('gemini_api_key') || '';
   state.baseUrl = localStorage.getItem('gemini_base_url') || '';
+  state.prompt = localStorage.getItem('last_prompt') || '';
 
-  // 恢复下载尺寸设置，并验证是否为有效值
-  const savedDownloadSize = localStorage.getItem('download_size');
-  if (savedDownloadSize && ALLOWED_DOWNLOAD_SIZES.includes(savedDownloadSize)) {
-    state.downloadSize = savedDownloadSize;
-  } else {
-    // 如果保存的值无效，使用默认值并清除无效的存储
-    state.downloadSize = 'original';
-    localStorage.removeItem('download_size');
-  }
+  state.downloadSize = restoreFromStorage('download_size', ALLOWED_DOWNLOAD_SIZES, 'original');
+  state.subject = restoreFromStorage('subject_type', ['icon', 'character', 'equipment', 'scene', 'custom'], 'icon');
+  state.generateResolution = restoreFromStorage('generate_resolution', [1024, 2048, 4096], 1024, v => parseInt(v, 10));
+  state.gridSize = restoreFromStorage('grid_size', ALLOWED_GRID_SIZES, DEFAULT_GRID_SIZE, v => parseInt(v, 10));
+}
 
-  // 恢复上次提示词
-  const savedPrompt = localStorage.getItem('last_prompt');
-  if (savedPrompt && elements.promptInput) elements.promptInput.value = savedPrompt;
-  state.prompt = savedPrompt || '';
+/**
+ * 将 state 同步到 UI 元素
+ */
+function syncStateToUI() {
+  if (elements.promptInput) elements.promptInput.value = state.prompt;
+  if (elements.subjectSelect) elements.subjectSelect.value = state.subject;
+  if (elements.downloadSizeSelect) elements.downloadSizeSelect.value = state.downloadSize;
+  if (elements.generateResolutionSelect) elements.generateResolutionSelect.value = state.generateResolution.toString();
+  if (elements.gridSizeSelect) elements.gridSizeSelect.value = state.gridSize.toString();
 
-  // 恢复主体选择
-  const savedSubject = localStorage.getItem('subject_type');
-  if (savedSubject && ['icon', 'character', 'equipment', 'scene', 'custom'].includes(savedSubject)) {
-    state.subject = savedSubject;
-    if (elements.subjectSelect) {
-      elements.subjectSelect.value = state.subject;
-    }
-  }
-
-  // 默认风格
+  // 风格输入框初始化
   if (elements.styleSelect && elements.customStyleInput) {
-    // 初始化：如果输入框为空，则填入默认下拉菜单的值
     if (!elements.customStyleInput.value) {
       elements.customStyleInput.value = elements.styleSelect.value;
     }
     state.style = elements.customStyleInput.value;
   }
+}
 
-  // 恢复下载尺寸设置到 UI
-  if (elements.downloadSizeSelect) {
-    elements.downloadSizeSelect.value = state.downloadSize;
-  }
+async function init() {
+  cacheDOM();
+  await loadHistory();
+  bindEvents();
+  loadAndDisplayVersion();
 
-  // 恢复生成分辨率设置
-  const savedResolution = localStorage.getItem('generate_resolution');
-  if (savedResolution) {
-    const resolution = parseInt(savedResolution, 10);
-    if ([1024, 2048, 4096].includes(resolution)) {
-      state.generateResolution = resolution;
-    } else {
-      localStorage.removeItem('generate_resolution');
-    }
-  }
-
-  // 恢复生成分辨率设置到 UI
-  if (elements.generateResolutionSelect) {
-    elements.generateResolutionSelect.value = state.generateResolution.toString();
-  }
-
-  // 恢复网格大小设置
-  const savedGridSize = localStorage.getItem('grid_size');
-  if (savedGridSize) {
-    const gridSize = parseInt(savedGridSize, 10);
-    if (ALLOWED_GRID_SIZES.includes(gridSize)) {
-      state.gridSize = gridSize;
-    } else {
-      // 只在存在无效值时清理
-      localStorage.removeItem('grid_size');
-    }
-  }
-
-  // 恢复网格大小设置到 UI
-  if (elements.gridSizeSelect) {
-    elements.gridSizeSelect.value = state.gridSize.toString();
-  }
-
-  // 更新 UI 状态，确保按钮状态正确
+  restoreState();
+  syncStateToUI();
   updateUI();
 }
 
@@ -560,14 +539,10 @@ function displayResult(fullImageBase64, slices) {
   // 显示切片
   elements.slicedSection.style.display = 'block';
   elements.slicedGrid.innerHTML = '';
-  
-  // 根据当前网格大小设置CSS类
-  elements.slicedGrid.className = 'sliced-grid';
-  if (state.gridSize === 3) {
-    elements.slicedGrid.classList.add('grid-3x3');
-  } else if (state.gridSize === 5) {
-    elements.slicedGrid.classList.add('grid-5x5');
-  }
+
+  // 根据当前网格大小设置 CSS 类
+  const gridClass = state.gridSize > 1 ? `grid-${state.gridSize}x${state.gridSize}` : '';
+  elements.slicedGrid.className = gridClass ? `sliced-grid ${gridClass}` : 'sliced-grid';
 
   slices.forEach((sliceBase64, index) => {
     const item = document.createElement('div');
