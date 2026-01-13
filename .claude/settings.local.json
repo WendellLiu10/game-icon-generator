@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: 简化代码结构，减少重复逻辑\n\n- app.js: 抽取 restoreFromStorage/restoreState/syncStateToUI 函数\n- gemini.js: 抽取 sendGenerateRequest 函数，统一 API 调用逻辑\n- 总计减少约 70 行重复代码\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)"
+    ]
+  }
+}
