@@ -351,12 +351,22 @@ export function toggleAssetSelection(assetId) {
     renderAssetsGrid();
 }
 
+let isDeleting = false; // 防止重复删除
+
 export async function deleteAssetById(assetId) {
+    // 防止重复调用
+    if (isDeleting) return;
+
     if (!confirm('确定删除这个素材吗？')) return;
 
-    await deleteAsset(assetId);
-    matrixState.selectedAssetIds = matrixState.selectedAssetIds.filter(id => id !== assetId);
-    await loadAssets();
+    isDeleting = true;
+    try {
+        await deleteAsset(assetId);
+        matrixState.selectedAssetIds = matrixState.selectedAssetIds.filter(id => id !== assetId);
+        await loadAssets();
+    } finally {
+        isDeleting = false;
+    }
 }
 
 function switchCategory(category) {
@@ -723,6 +733,20 @@ async function clearAllDatabases() {
         alert('数据库清理完成，请刷新页面');
     } catch (err) {
         console.error('[Matrix] 清理数据库失败:', err);
+    }
+}
+
+/**
+ * 刷新 API 设置 - 用于页面切换时同步最新设置
+ */
+export function refreshApiSettings() {
+    const newApiKey = localStorage.getItem('gemini_api_key') || '';
+    const newBaseUrl = localStorage.getItem('gemini_base_url') || '';
+
+    if (newApiKey !== matrixState.apiKey || newBaseUrl !== matrixState.baseUrl) {
+        matrixState.apiKey = newApiKey;
+        matrixState.baseUrl = newBaseUrl;
+        console.log('[Matrix] API 设置已同步更新');
     }
 }
 

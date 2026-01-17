@@ -178,18 +178,19 @@ export class MatrixGenerator {
         // 构建提示词
         const prompt = this.buildPrompt(typeConfig, style, customPrompt);
 
-        // 调用 API
-        const result = await generateIconGridWithReference(
+        // 调用 API - 注意参数顺序: (apiKey, image, prompt, subject, baseUrl, resolution, gridSize)
+        const imageBase64 = await generateIconGridWithReference(
             this.apiKey,
             asset.imageBase64,
             prompt,
-            typeConfig.gridSize,
-            resolution,
-            this.baseUrl
+            generationType,           // subject - 生成类型作为主体类型
+            this.baseUrl || undefined, // baseUrl - 空字符串时传 undefined 使用默认值
+            resolution,                // resolution
+            typeConfig.gridSize        // gridSize
         );
 
         return {
-            imageBase64: result.imageBase64,
+            imageBase64,
             prompt,
             assetId: asset.id,
             styleId: style.id,
