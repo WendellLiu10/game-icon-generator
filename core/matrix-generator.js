@@ -59,10 +59,11 @@ export class MatrixGenerator {
      * @param {string} config.generationType - 生成类型
      * @param {string} config.customPrompt - 自定义提示词
      * @param {number} config.resolution - 生成分辨率
+     * @param {string} config.aspectRatio - 宽高比
      * @returns {Promise<Array>} 矩阵结果
      */
     async generate(config) {
-        const { assetIds, styleIds, generationType = 'icon', customPrompt = '', resolution = 1024 } = config;
+        const { assetIds, styleIds, generationType = 'icon', customPrompt = '', resolution = 1024, aspectRatio = '1:1' } = config;
 
         this.aborted = false;
         this.results = [];
@@ -90,7 +91,8 @@ export class MatrixGenerator {
                     style: styles[row],
                     generationType,
                     customPrompt,
-                    resolution
+                    resolution,
+                    aspectRatio
                 });
             }
         }
@@ -172,13 +174,13 @@ export class MatrixGenerator {
      * 生成单个单元格
      */
     async generateSingle(task) {
-        const { asset, style, generationType, customPrompt, resolution } = task;
+        const { asset, style, generationType, customPrompt, resolution, aspectRatio } = task;
         const typeConfig = GENERATION_TYPES[generationType] || GENERATION_TYPES.icon;
 
         // 构建提示词
         const prompt = this.buildPrompt(typeConfig, style, customPrompt);
 
-        // 调用 API - 注意参数顺序: (apiKey, image, prompt, subject, baseUrl, resolution, gridSize)
+        // 调用 API - 注意参数顺序: (apiKey, image, prompt, subject, baseUrl, resolution, gridSize, aspectRatio)
         const imageBase64 = await generateIconGridWithReference(
             this.apiKey,
             asset.imageBase64,
@@ -186,7 +188,8 @@ export class MatrixGenerator {
             generationType,           // subject - 生成类型作为主体类型
             this.baseUrl || undefined, // baseUrl - 空字符串时传 undefined 使用默认值
             resolution,                // resolution
-            typeConfig.gridSize        // gridSize
+            typeConfig.gridSize,       // gridSize
+            aspectRatio                // aspectRatio
         );
 
         return {
@@ -251,5 +254,111 @@ export function getGenerationTypes() {
  * @returns {Object|null}
  */
 export function getStyleById(id) {
-    return PRESET_STYLES.find(s => s.id === id) || null;
+    // 先从预设风格中查找
+    const preset = PRESET_STYLES.find(s => s.id === id);
+    if (preset) return preset;
+
+    // 再从自定义风格中查找
+    const customStyles = getCustomStyles();
+    return customStyles.find(s => s.id === id) || null;
+}
+
+// ============================================================================
+// 自定义风格管理
+// ============================================================================
+
+const CUSTOM_STYLES_STORAGE_KEY = 'custom_styles';
+
+/**
+ * 获取所有自定义风格
+ * @returns {Array}
+ */
+export function getCustomStyles() {
+    try {
+        const data = localStorage.getItem(CUSTOM_STYLES_STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.error('读取自定义风格失败:', e);
+        return [];
+    }
+}
+
+/**
+ * 保存自定义风格
+ * @param {Array} styles
+ */
+function saveCustomStyles(styles) {
+    localStorage.setItem(CUSTOM_STYLES_STORAGE_KEY, JSON.stringify(styles));
+}
+
+/**
+ * 添加自定义风格
+ * @param {string} name - 风格名称
+ * @param {string} prompt - 风格提示词
+ * @returns {Object} - 新创建的风格对象
+ */
+export function addCustomStyle(name, prompt) {
+    const styles = getCustomStyles();
+
+    // 生成唯一 ID
+    const id = 'custom_' + Date.now();
+
+    const newStyle = {
+        id,
+        name,
+        prompt,
+        isCustom: true,
+        createdAt: new Date().toISOString()
+    };
+
+    styles.push(newStyle);
+    saveCustomStyles(styles);
+
+    return newStyle;
+}
+
+/**
+ * 删除自定义风格
+ * @param {string} id - 风格 ID
+ * @returns {boolean} - 是否删除成功
+ */
+export function deleteCustomStyle(id) {
+    const styles = getCustomStyles();
+    const index = styles.findIndex(s => s.id === id);
+
+    if (index === -1) return false;
+
+    styles.splice(index, 1);
+    saveCustomStyles(styles);
+
+    return true;
+}
+
+/**
+ * 更新自定义风格
+ * @param {string} id - 风格 ID
+ * @param {string} name - 新名称
+ * @param {string} prompt - 新提示词
+ * @returns {boolean} - 是否更新成功
+ */
+export function updateCustomStyle(id, name, prompt) {
+    const styles = getCustomStyles();
+    const style = styles.find(s => s.id === id);
+
+    if (!style) return false;
+
+    style.name = name;
+    style.prompt = prompt;
+    style.updatedAt = new Date().toISOString();
+    saveCustomStyles(styles);
+
+    return true;
+}
+
+/**
+ * 获取所有风格（预设 + 自定义）
+ * @returns {Array}
+ */
+export function getAllStyles() {
+    return [...PRESET_STYLES, ...getCustomStyles()];
 }

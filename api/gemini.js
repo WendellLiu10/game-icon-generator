@@ -266,14 +266,33 @@ export function buildExtendedPrompt(type, userPrompt, style, resolution, hasRefe
 }
 
 /**
- * 构建图标网格 Prompt（文字模式）
+ * 根据宽高比和基础分辨率计算实际尺寸
+ * @param {number} resolution - 基础分辨率
+ * @param {string} aspectRatio - 宽高比 (如 "16:9", "1:1")
+ * @returns {{width: number, height: number}}
+ */
+function calculateDimensions(resolution, aspectRatio = '1:1') {
+  const [w, h] = aspectRatio.split(':').map(Number);
+  if (w === h) {
+    return { width: resolution, height: resolution };
+  }
+  // 保持较长边为 resolution
+  if (w > h) {
+    return { width: resolution, height: Math.round(resolution * h / w) };
+  } else {
+    return { width: Math.round(resolution * w / h), height: resolution };
+  }
+}
+
+/**
+ * 构建图标网格 Prompt（文字模式）- 导出版本，用于预览
  * @param {string} userPrompt - 用户描述
  * @param {string} style - 风格描述
  * @param {string} subject - 生成主体 (icon, character, etc.)
  * @param {number} resolution - 分辨率 (1024/2048/4096)
  * @param {number} gridSize - 网格大小 (1, 3 或 5)
  */
-function buildGridPrompt(userPrompt, style = 'game asset style', subject = 'icon', resolution = 1024, gridSize = 3) {
+export function buildGridPrompt(userPrompt, style = 'game asset style', subject = 'icon', resolution = 1024, gridSize = 3) {
   // 确保 subject 不为空
   const safeSubject = subject || 'icon';
 
@@ -296,21 +315,24 @@ function buildGridPrompt(userPrompt, style = 'game asset style', subject = 'icon
 }
 
 /**
- * 构建风格迁移的网格 Prompt
+ * 构建风格迁移的网格 Prompt - 导出版本，用于预览
  * @param {string} userPrompt - 用户描述
  * @param {string} subject - 生成主体 (icon, character, etc.)
  * @param {number} resolution - 分辨率 (1024/2048/4096)
  * @param {number} gridSize - 网格大小 (1, 3 或 5)
+ * @param {string} aspectRatio - 宽高比
  */
-function buildStyleGridPrompt(userPrompt, subject = 'icon', resolution = 1024, gridSize = 3) {
+export function buildStyleGridPrompt(userPrompt, subject = 'icon', resolution = 1024, gridSize = 3, aspectRatio = '1:1') {
   // 确保 subject 不为空
   const safeSubject = subject || 'icon';
+  const { width, height } = calculateDimensions(resolution, aspectRatio);
+  const resolutionStr = width === height ? `${resolution}x${resolution}` : `${width}x${height}`;
 
   if (gridSize === 1) {
     return PROMPT_TEMPLATES.styleModeSingle
       .replace(/{SUBJECT}/g, safeSubject)
       .replace('{USER_PROMPT}', userPrompt)
-      .replace(/{RESOLUTION}/g, resolution.toString());
+      .replace(/{RESOLUTION}/g, resolutionStr);
   } else {
     const iconCount = gridSize * gridSize;
     return PROMPT_TEMPLATES.styleModeGrid
@@ -318,7 +340,7 @@ function buildStyleGridPrompt(userPrompt, subject = 'icon', resolution = 1024, g
       .replace(/{ICON_COUNT}/g, iconCount.toString())
       .replace(/{SUBJECT}/g, safeSubject)
       .replace('{USER_PROMPT}', userPrompt)
-      .replace(/{RESOLUTION}/g, resolution.toString());
+      .replace(/{RESOLUTION}/g, resolutionStr);
   }
 }
 
@@ -326,23 +348,21 @@ function buildStyleGridPrompt(userPrompt, subject = 'icon', resolution = 1024, g
  * 处理 API 错误响应
  */
 async function handleApiError(response) {
-  const message = ERROR_MESSAGES[response.status];
-  if (message) {
-    throw new Error(message);
-  }
-
   try {
     const text = await response.text();
+    console.error('  ❌ [Gemini API] 错误响应:', text);
     if (!text) {
       throw new Error(`请求失败 (${response.status}): 空响应`);
     }
     const error = JSON.parse(text);
-    throw new Error(error.error?.message || `请求失败 (${response.status})`);
+    const errorMsg = error.error?.message || `请求失败 (${response.status})`;
+    throw new Error(errorMsg);
   } catch (e) {
-    if (e.message.includes('请求失败')) {
+    if (e.message.includes('请求失败') || e.message.includes('Invalid')) {
       throw e;
     }
-    throw new Error(`请求失败 (${response.status})`);
+    const message = ERROR_MESSAGES[response.status];
+    throw new Error(message || `请求失败 (${response.status})`);
   }
 }
 
@@ -362,21 +382,28 @@ function getImageSize(resolution) {
  * @param {string} baseUrl - API Base URL
  * @param {Array} parts - 请求内容 parts 数组
  * @param {number} resolution - 生成分辨率
+ * @param {string} aspectRatio - 宽高比
  * @param {string} logPrefix - 日志前缀描述
  * @returns {Promise<string>} - Base64 图像数据
  */
-async function sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix) {
+async function sendGenerateRequest(apiKey, baseUrl, parts, resolution, aspectRatio, logPrefix) {
   const url = baseUrl || CONFIG.baseUrl;
   const endpoint = `${url}/models/${CONFIG.imageModel}:generateContent`;
 
   console.log('  🔗 [Gemini API] 请求 URL:', endpoint);
   console.log('  📐 [Gemini API]', logPrefix);
 
+  // 构建 imageConfig
+  const imageConfig = { imageSize: getImageSize(resolution) };
+  if (aspectRatio && aspectRatio !== '1:1') {
+    imageConfig.aspectRatio = aspectRatio;
+  }
+
   const requestBody = JSON.stringify({
     contents: [{ parts }],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
-      imageConfig: { imageSize: getImageSize(resolution) }
+      imageConfig
     }
   });
 
@@ -449,7 +476,46 @@ async function sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix
 export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, resolution = 1024, gridSize = 3) {
   const parts = [{ text: buildGridPrompt(prompt, style, subject, resolution, gridSize) }];
   const logPrefix = `模式: 文字生成，分辨率: ${resolution}，网格: ${gridSize}x${gridSize}，主体: ${subject}`;
-  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix);
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, '1:1', logPrefix);
+}
+
+/**
+ * 使用自定义提示词生成图片（纯文字模式）
+ * @param {string} apiKey - Gemini API Key
+ * @param {string} customPrompt - 自定义提示词
+ * @param {string} [baseUrl] - 可选的自定义 API Base URL
+ * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
+ * @returns {Promise<string>} - Base64 图像数据
+ */
+export async function generateWithCustomPrompt(apiKey, customPrompt, baseUrl, resolution = 1024) {
+  const parts = [{ text: customPrompt }];
+  const logPrefix = `模式: 自定义提示词，分辨率: ${resolution}`;
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, '1:1', logPrefix);
+}
+
+/**
+ * 使用自定义提示词和参考图生成图片（风格迁移模式）
+ * @param {string} apiKey - Gemini API Key
+ * @param {string} referenceImageBase64 - 参考图的 Base64 数据
+ * @param {string} customPrompt - 自定义提示词
+ * @param {string} [baseUrl] - 可选的自定义 API Base URL
+ * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
+ * @param {string} [aspectRatio='1:1'] - 宽高比
+ * @returns {Promise<string>} - Base64 图像数据
+ */
+export async function generateWithCustomPromptAndReference(apiKey, referenceImageBase64, customPrompt, baseUrl, resolution = 1024, aspectRatio = '1:1') {
+  if (!referenceImageBase64) {
+    throw new Error('参考图数据为空，请先上传参考图片');
+  }
+
+  console.log('  🖼️ [Gemini API] 参考图大小:', (referenceImageBase64.length / 1024).toFixed(2), 'KB (Base64)');
+
+  const parts = [
+    { inlineData: { mimeType: 'image/png', data: referenceImageBase64 } },
+    { text: customPrompt }
+  ];
+  const logPrefix = `模式: 自定义提示词(风格迁移)，分辨率: ${resolution}，宽高比: ${aspectRatio}`;
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, aspectRatio, logPrefix);
 }
 
 /**
@@ -461,9 +527,10 @@ export async function generateIconGrid(apiKey, prompt, style, subject, baseUrl, 
  * @param {string} [baseUrl] - 可选的自定义 API Base URL
  * @param {number} [resolution=1024] - 生成分辨率 (1024/2048/4096)
  * @param {number} [gridSize=3] - 网格大小 (1, 3 或 5)
+ * @param {string} [aspectRatio='1:1'] - 宽高比
  * @returns {Promise<string>} - Base64 图像数据
  */
-export async function generateIconGridWithReference(apiKey, referenceImageBase64, prompt, subject, baseUrl, resolution = 1024, gridSize = 3) {
+export async function generateIconGridWithReference(apiKey, referenceImageBase64, prompt, subject, baseUrl, resolution = 1024, gridSize = 3, aspectRatio = '1:1') {
   if (!referenceImageBase64) {
     throw new Error('参考图数据为空，请先上传参考图片');
   }
@@ -472,10 +539,10 @@ export async function generateIconGridWithReference(apiKey, referenceImageBase64
 
   const parts = [
     { inlineData: { mimeType: 'image/png', data: referenceImageBase64 } },
-    { text: buildStyleGridPrompt(prompt, subject, resolution, gridSize) }
+    { text: buildStyleGridPrompt(prompt, subject, resolution, gridSize, aspectRatio) }
   ];
-  const logPrefix = `模式: 风格迁移，分辨率: ${resolution}，网格: ${gridSize}x${gridSize}，主体: ${subject}`;
-  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix);
+  const logPrefix = `模式: 风格迁移，分辨率: ${resolution}，网格: ${gridSize}x${gridSize}，宽高比: ${aspectRatio}，主体: ${subject}`;
+  return sendGenerateRequest(apiKey, baseUrl, parts, resolution, aspectRatio, logPrefix);
 }
 
 /**

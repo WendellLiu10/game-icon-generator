@@ -816,6 +816,27 @@ dialog::backdrop {
     border-color: var(--accent-color);
 }
 
+.style-chip.custom {
+    position: relative;
+    border: 1px dashed var(--border-color);
+}
+
+.style-chip.custom .custom-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 4px;
+}
+
+.style-chip.custom.selected .custom-badge {
+    background: white;
+    color: var(--accent-color);
+}
+
 /* 矩阵表格 */
 .matrix-table {
     display: grid;

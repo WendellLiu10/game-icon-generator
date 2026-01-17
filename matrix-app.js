@@ -14,7 +14,12 @@ import {
 import {
     MatrixGenerator,
     PRESET_STYLES,
-    GENERATION_TYPES
+    GENERATION_TYPES,
+    getStyleById,
+    getCustomStyles,
+    addCustomStyle,
+    deleteCustomStyle,
+    getAllStyles
 } from './core/matrix-generator.js';
 
 import {
@@ -65,6 +70,7 @@ const matrixState = {
     generationType: 'icon',
     customPrompt: '',
     resolution: 1024,
+    aspectRatio: '1:1',
     concurrent: false,
 
     // 生成状态
@@ -74,7 +80,11 @@ const matrixState = {
 
     // 探索方案
     explorations: [],
-    currentExplorationId: null
+    currentExplorationId: null,
+
+    // 高级模式
+    advancedModeSource: 'matrix',  // 标记高级模式来源
+    advancedPromptText: ''         // 高级模式下的自定义提示词
 };
 
 // ============================================================================
@@ -99,6 +109,7 @@ function cacheMatrixDOM() {
         generationTypeSelect: document.getElementById('matrixGenerationType'),
         customPromptInput: document.getElementById('matrixCustomPrompt'),
         resolutionSelect: document.getElementById('matrixResolution'),
+        aspectRatioSelect: document.getElementById('matrixAspectRatio'),
         concurrentSwitch: document.getElementById('concurrentSwitch'),
 
         // 控制按钮
@@ -116,7 +127,27 @@ function cacheMatrixDOM() {
         matrixGrid: document.getElementById('matrixGrid'),
 
         // 探索方案
-        explorationsList: document.getElementById('explorationsList')
+        explorationsList: document.getElementById('explorationsList'),
+
+        // 高级提示词弹窗（复用单图生成的弹窗）
+        advancedPromptDialog: document.getElementById('advancedPromptDialog'),
+        advancedPromptInput: document.getElementById('advancedPromptInput'),
+        btnAdvancedMatrix: document.getElementById('btnAdvancedMatrix'),
+        btnCancelAdvanced: document.getElementById('btnCancelAdvanced'),
+        btnResetAdvanced: document.getElementById('btnResetAdvanced'),
+        btnGenerateAdvanced: document.getElementById('btnGenerateAdvanced'),
+
+        // 自定义风格弹窗
+        btnManageStyles: document.getElementById('btnManageStyles'),
+        customStyleDialog: document.getElementById('customStyleDialog'),
+        customStyleName: document.getElementById('customStyleName'),
+        customStylePrompt: document.getElementById('customStylePrompt'),
+        btnCancelCustomStyle: document.getElementById('btnCancelCustomStyle'),
+        btnSaveCustomStyle: document.getElementById('btnSaveCustomStyle'),
+        manageStylesDialog: document.getElementById('manageStylesDialog'),
+        customStylesList: document.getElementById('customStylesList'),
+        btnAddNewStyle: document.getElementById('btnAddNewStyle'),
+        btnCloseManageStyles: document.getElementById('btnCloseManageStyles')
     };
 }
 
@@ -215,6 +246,13 @@ function bindMatrixEvents() {
         });
     }
 
+    // 宽高比
+    if (matrixElements.aspectRatioSelect) {
+        matrixElements.aspectRatioSelect.addEventListener('change', (e) => {
+            matrixState.aspectRatio = e.target.value;
+        });
+    }
+
     // 并发开关
     if (matrixElements.concurrentSwitch) {
         matrixElements.concurrentSwitch.addEventListener('change', (e) => {
@@ -242,6 +280,33 @@ function bindMatrixEvents() {
     // 保存方案
     if (matrixElements.saveExplorationBtn) {
         matrixElements.saveExplorationBtn.addEventListener('click', handleSaveExploration);
+    }
+
+    // 高级模式按钮
+    if (matrixElements.btnAdvancedMatrix) {
+        matrixElements.btnAdvancedMatrix.addEventListener('click', handleOpenAdvancedMatrix);
+    }
+
+    // 自定义风格管理
+    if (matrixElements.btnManageStyles) {
+        matrixElements.btnManageStyles.addEventListener('click', handleOpenManageStyles);
+    }
+    if (matrixElements.btnCancelCustomStyle) {
+        matrixElements.btnCancelCustomStyle.addEventListener('click', () => {
+            matrixElements.customStyleDialog.close();
+        });
+    }
+    if (matrixElements.btnSaveCustomStyle) {
+        matrixElements.btnSaveCustomStyle.addEventListener('click', handleSaveCustomStyle);
+    }
+    if (matrixElements.btnAddNewStyle) {
+        matrixElements.btnAddNewStyle.addEventListener('click', handleOpenAddStyle);
+    }
+    if (matrixElements.btnCloseManageStyles) {
+        matrixElements.btnCloseManageStyles.addEventListener('click', () => {
+            matrixElements.manageStylesDialog.close();
+            renderStyleChips(); // 关闭时刷新风格列表
+        });
     }
 }
 
@@ -386,20 +451,23 @@ function switchCategory(category) {
 
 function renderStyleChips() {
     console.log('[Matrix] renderStyleChips 被调用');
-    console.log('[Matrix] styleChips 容器:', matrixElements.styleChips);
-    console.log('[Matrix] PRESET_STYLES:', PRESET_STYLES);
 
     if (!matrixElements.styleChips) {
         console.error('[Matrix] styleChips 容器不存在!');
         return;
     }
 
-    if (!PRESET_STYLES || PRESET_STYLES.length === 0) {
-        console.error('[Matrix] PRESET_STYLES 为空!');
+    // 获取所有风格（预设 + 自定义）
+    const allStyles = getAllStyles();
+
+    if (!allStyles || allStyles.length === 0) {
+        console.error('[Matrix] 没有可用的风格!');
         return;
     }
 
     let html = '';
+
+    // 渲染预设风格
     PRESET_STYLES.forEach(style => {
         const isSelected = matrixState.selectedStyleIds.includes(style.id);
         html += `
@@ -411,9 +479,24 @@ function renderStyleChips() {
     `;
     });
 
-    console.log('[Matrix] 生成的 HTML:', html.substring(0, 200) + '...');
+    // 渲染自定义风格（带删除按钮样式）
+    const customStyles = getCustomStyles();
+    if (customStyles.length > 0) {
+        customStyles.forEach(style => {
+            const isSelected = matrixState.selectedStyleIds.includes(style.id);
+            html += `
+        <div class="style-chip custom ${isSelected ? 'selected' : ''}"
+             data-id="${style.id}"
+             onclick="window.matrixApp.toggleStyleSelection('${style.id}')"
+             title="${style.prompt}">
+          ${style.name}
+          <span class="custom-badge">自定义</span>
+        </div>
+      `;
+        });
+    }
+
     matrixElements.styleChips.innerHTML = html;
-    console.log('[Matrix] styleChips 子元素数量:', matrixElements.styleChips.children.length);
     updateSelectionCounts();
 }
 
@@ -489,7 +572,8 @@ async function handleGenerateMatrix() {
             styleIds: matrixState.selectedStyleIds,
             generationType: matrixState.generationType,
             customPrompt: matrixState.customPrompt,
-            resolution: matrixState.resolution
+            resolution: matrixState.resolution,
+            aspectRatio: matrixState.aspectRatio
         });
 
         matrixState.results = result;
@@ -508,6 +592,212 @@ function handleAbortGeneration() {
     if (generator) {
         generator.abort();
     }
+}
+
+// ============================================================================
+// 高级模式
+// ============================================================================
+
+/**
+ * 构建矩阵第一个单元格的示例提示词
+ */
+function buildMatrixSamplePrompt() {
+    const typeConfig = GENERATION_TYPES[matrixState.generationType] || GENERATION_TYPES.icon;
+
+    // 获取第一个选中的风格
+    const firstStyleId = matrixState.selectedStyleIds[0];
+    const style = getStyleById(firstStyleId) || { prompt: 'game asset style' };
+
+    // 构建提示词
+    const parts = [typeConfig.prompt, style.prompt];
+    if (matrixState.customPrompt) {
+        parts.push(matrixState.customPrompt);
+    }
+    return parts.join(', ');
+}
+
+/**
+ * 打开高级模式弹窗
+ */
+function handleOpenAdvancedMatrix() {
+    if (matrixState.selectedAssetIds.length === 0) {
+        showToast('请先选择素材', true);
+        return;
+    }
+    if (matrixState.selectedStyleIds.length === 0) {
+        showToast('请先选择风格', true);
+        return;
+    }
+
+    matrixState.advancedModeSource = 'matrix';
+    const prompt = buildMatrixSamplePrompt();
+    matrixState.advancedPromptText = prompt;
+
+    // 使用共享的弹窗
+    matrixElements.advancedPromptInput.value = prompt;
+    matrixElements.advancedPromptDialog.showModal();
+
+    // 临时替换弹窗按钮的事件处理
+    setupMatrixAdvancedDialogHandlers();
+}
+
+/**
+ * 为矩阵高级模式设置弹窗按钮处理器
+ */
+function setupMatrixAdvancedDialogHandlers() {
+    const cancelBtn = matrixElements.btnCancelAdvanced;
+    const resetBtn = matrixElements.btnResetAdvanced;
+    const generateBtn = matrixElements.btnGenerateAdvanced;
+
+    // 使用一次性事件处理器
+    const handleCancel = () => {
+        matrixElements.advancedPromptDialog.close();
+        cleanupHandlers();
+    };
+
+    const handleReset = () => {
+        const prompt = buildMatrixSamplePrompt();
+        matrixElements.advancedPromptInput.value = prompt;
+        matrixState.advancedPromptText = prompt;
+        showToast('提示词已重置');
+    };
+
+    const handleGenerate = async () => {
+        const customPrompt = matrixElements.advancedPromptInput.value.trim();
+        if (!customPrompt) {
+            showToast('提示词不能为空', true);
+            return;
+        }
+
+        // 将用户编辑的提示词设置为 customPrompt（会附加到所有生成）
+        matrixState.customPrompt = customPrompt;
+        matrixElements.advancedPromptDialog.close();
+        cleanupHandlers();
+
+        // 调用生成
+        await handleGenerateMatrix();
+    };
+
+    const cleanupHandlers = () => {
+        cancelBtn.removeEventListener('click', handleCancel);
+        resetBtn.removeEventListener('click', handleReset);
+        generateBtn.removeEventListener('click', handleGenerate);
+    };
+
+    // 移除旧的事件处理器（通过克隆节点）
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    resetBtn.replaceWith(resetBtn.cloneNode(true));
+    generateBtn.replaceWith(generateBtn.cloneNode(true));
+
+    // 重新获取元素引用
+    matrixElements.btnCancelAdvanced = document.getElementById('btnCancelAdvanced');
+    matrixElements.btnResetAdvanced = document.getElementById('btnResetAdvanced');
+    matrixElements.btnGenerateAdvanced = document.getElementById('btnGenerateAdvanced');
+
+    // 添加新的事件处理器
+    matrixElements.btnCancelAdvanced.addEventListener('click', handleCancel);
+    matrixElements.btnResetAdvanced.addEventListener('click', handleReset);
+    matrixElements.btnGenerateAdvanced.addEventListener('click', handleGenerate);
+}
+
+// ============================================================================
+// 自定义风格管理
+// ============================================================================
+
+/**
+ * 打开管理风格弹窗
+ */
+function handleOpenManageStyles() {
+    renderCustomStylesList();
+    matrixElements.manageStylesDialog.showModal();
+}
+
+/**
+ * 渲染自定义风格列表
+ */
+function renderCustomStylesList() {
+    const customStyles = getCustomStyles();
+
+    if (customStyles.length === 0) {
+        matrixElements.customStylesList.innerHTML = `
+            <div style="text-align: center; color: var(--text-secondary); padding: 24px;">
+                <p>暂无自定义风格</p>
+                <p style="font-size: 0.85rem;">点击下方按钮添加</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    customStyles.forEach(style => {
+        html += `
+        <div class="custom-style-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 500;">${style.name}</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; word-break: break-all;">${style.prompt}</div>
+            </div>
+            <button class="btn btn-secondary" style="width: auto; padding: 4px 8px; margin-left: 12px;" onclick="window.matrixApp.deleteCustomStyleById('${style.id}')">
+                🗑️
+            </button>
+        </div>
+        `;
+    });
+
+    matrixElements.customStylesList.innerHTML = html;
+}
+
+/**
+ * 打开添加风格弹窗
+ */
+function handleOpenAddStyle() {
+    // 清空输入框
+    matrixElements.customStyleName.value = '';
+    matrixElements.customStylePrompt.value = '';
+    matrixElements.customStyleDialog.showModal();
+}
+
+/**
+ * 保存自定义风格
+ */
+function handleSaveCustomStyle() {
+    const name = matrixElements.customStyleName.value.trim();
+    const prompt = matrixElements.customStylePrompt.value.trim();
+
+    if (!name) {
+        showToast('请输入风格名称', true);
+        return;
+    }
+    if (!prompt) {
+        showToast('请输入风格提示词', true);
+        return;
+    }
+
+    addCustomStyle(name, prompt);
+    matrixElements.customStyleDialog.close();
+
+    // 刷新列表
+    renderCustomStylesList();
+    renderStyleChips();
+
+    showToast('风格已添加');
+}
+
+/**
+ * 删除自定义风格
+ */
+export function deleteCustomStyleById(id) {
+    if (!confirm('确定删除这个自定义风格吗？')) return;
+
+    deleteCustomStyle(id);
+
+    // 从选中列表中移除
+    matrixState.selectedStyleIds = matrixState.selectedStyleIds.filter(sid => sid !== id);
+
+    // 刷新列表
+    renderCustomStylesList();
+    renderStyleChips();
+
+    showToast('风格已删除');
 }
 
 function initEmptyMatrix() {
@@ -756,7 +1046,8 @@ window.matrixApp = {
     toggleStyleSelection,
     loadExploration,
     exportExploration,
-    clearAllDatabases  // 暴露清理函数
+    clearAllDatabases,
+    deleteCustomStyleById  // 删除自定义风格
 };
 
 export { matrixState };

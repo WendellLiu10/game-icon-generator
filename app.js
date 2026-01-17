@@ -2,7 +2,7 @@
  * 图标生成器主应用逻辑 v2.0
  */
 
-import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js';
+import { generateIconGrid, generateIconGridWithReference, buildGridPrompt, buildStyleGridPrompt, generateWithCustomPrompt, generateWithCustomPromptAndReference } from './api/gemini.js';
 import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion, getLocalVersion } from './core/update-checker.js';
 import { initDB, saveHistoryItem, getAllHistory, clearAllHistory, trimHistory } from './core/history-db.js';
@@ -48,6 +48,10 @@ const state = {
   downloadSize: 'original',  // 下载尺寸设置
   generateResolution: 1024,  // 生成分辨率 (1024/2048/4096)
   gridSize: DEFAULT_GRID_SIZE, // 网格大小 (1, 3 或 5)
+  // 高级模式
+  advancedMode: false,       // 是否使用高级模式（自定义提示词）
+  customPromptText: '',      // 用户编辑后的自定义提示词
+  advancedModeSource: 'single', // 高级模式来源: 'single' | 'matrix'
 };
 
 // ============================================================================
@@ -123,6 +127,14 @@ function cacheDOM() {
 
     // 反馈
     toast: document.getElementById('toast'),
+
+    // 高级提示词弹窗
+    advancedPromptDialog: document.getElementById('advancedPromptDialog'),
+    advancedPromptInput: document.getElementById('advancedPromptInput'),
+    btnAdvancedSingle: document.getElementById('btnAdvancedSingle'),
+    btnCancelAdvanced: document.getElementById('btnCancelAdvanced'),
+    btnResetAdvanced: document.getElementById('btnResetAdvanced'),
+    btnGenerateAdvanced: document.getElementById('btnGenerateAdvanced'),
   };
 }
 
@@ -290,6 +302,22 @@ function bindEvents() {
       }
     });
   }
+
+  // 高级模式
+  if (elements.btnAdvancedSingle) {
+    elements.btnAdvancedSingle.addEventListener('click', handleOpenAdvanced);
+  }
+  if (elements.btnCancelAdvanced) {
+    elements.btnCancelAdvanced.addEventListener('click', () => {
+      elements.advancedPromptDialog.close();
+    });
+  }
+  if (elements.btnResetAdvanced) {
+    elements.btnResetAdvanced.addEventListener('click', handleResetAdvancedPrompt);
+  }
+  if (elements.btnGenerateAdvanced) {
+    elements.btnGenerateAdvanced.addEventListener('click', handleGenerateWithAdvanced);
+  }
 }
 
 // ============================================================================
@@ -401,6 +429,25 @@ function showGenerateError() {
 
 /** 调用生成 API */
 async function callGenerateAPI() {
+  // 高级模式：使用自定义提示词
+  if (state.advancedMode && state.customPromptText) {
+    if (state.mode === 'text') {
+      return generateWithCustomPrompt(
+        state.apiKey, state.customPromptText,
+        state.baseUrl || undefined, state.generateResolution
+      );
+    } else {
+      if (!state.referenceImage) {
+        throw new Error('请先上传参考图片');
+      }
+      return generateWithCustomPromptAndReference(
+        state.apiKey, state.referenceImage, state.customPromptText,
+        state.baseUrl || undefined, state.generateResolution, '1:1'
+      );
+    }
+  }
+
+  // 普通模式
   if (state.mode === 'text') {
     return generateIconGrid(
       state.apiKey, state.prompt, state.style, state.subject,
@@ -423,6 +470,72 @@ async function processSlices(image) {
     return [image];
   }
   return sliceImageGrid(image, state.gridSize, state.gridSize);
+}
+
+// ============================================================================
+// 高级模式函数
+// ============================================================================
+
+/** 生成当前配置的提示词 */
+function generateCurrentPrompt() {
+  if (state.mode === 'text') {
+    return buildGridPrompt(
+      state.prompt,
+      state.style || 'game asset style',
+      state.subject,
+      state.generateResolution,
+      state.gridSize
+    );
+  } else {
+    return buildStyleGridPrompt(
+      state.prompt,
+      state.subject,
+      state.generateResolution,
+      state.gridSize,
+      '1:1'
+    );
+  }
+}
+
+/** 打开高级模式弹窗 */
+function handleOpenAdvanced() {
+  if (!state.prompt.trim()) {
+    showToast('请先输入图标描述', true);
+    return;
+  }
+
+  state.advancedModeSource = 'single';
+  const prompt = generateCurrentPrompt();
+  state.customPromptText = prompt;
+  elements.advancedPromptInput.value = prompt;
+  elements.advancedPromptDialog.showModal();
+}
+
+/** 重置高级提示词 */
+function handleResetAdvancedPrompt() {
+  const prompt = generateCurrentPrompt();
+  state.customPromptText = prompt;
+  elements.advancedPromptInput.value = prompt;
+  showToast('提示词已重置');
+}
+
+/** 使用高级提示词生成 */
+async function handleGenerateWithAdvanced() {
+  const customPrompt = elements.advancedPromptInput.value.trim();
+  if (!customPrompt) {
+    showToast('提示词不能为空', true);
+    return;
+  }
+
+  state.customPromptText = customPrompt;
+  state.advancedMode = true;
+  elements.advancedPromptDialog.close();
+
+  // 调用生成
+  await handleGenerate();
+
+  // 重置高级模式标记
+  state.advancedMode = false;
 }
 
 // ============================================================================

@@ -134,9 +134,14 @@
 - 各种元素的魔法宝石"></textarea>
           </div>
 
-          <button id="btnGenerate" class="btn btn-primary">
-            <span>✨ 开始生成</span>
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnGenerate" class="btn btn-primary" style="flex: 1;">
+              <span>✨ 开始生成</span>
+            </button>
+            <button id="btnAdvancedSingle" class="btn btn-secondary" style="width: auto; padding: 8px 16px;" title="查看和编辑最终提示词">
+              ⚙️ 高级
+            </button>
+          </div>
         </div>
 
         <!-- 下载尺寸设置 -->
@@ -260,8 +265,13 @@
         <div class="card">
           <div class="section-header">
             <h3 class="section-title">🎭 风格选择</h3>
-            <span style="font-size: 0.8rem; color: var(--text-secondary);">已选 <span id="selectedStylesCount">0</span>
-              个</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">已选 <span id="selectedStylesCount">0</span>
+                个</span>
+              <button id="btnManageStyles" class="btn btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.75rem;">
+                ➕ 添加
+              </button>
+            </div>
           </div>
           <div class="style-selector" id="styleChipsContainer">
             <!-- 风格标签将由 JS 渲染 -->
@@ -292,6 +302,17 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">宽高比</label>
+            <select id="matrixAspectRatio" class="input-field">
+              <option value="1:1">1:1 (正方形)</option>
+              <option value="16:9">16:9 (横屏)</option>
+              <option value="9:16">9:16 (竖屏)</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">附加描述 (可选)</label>
             <input type="text" id="matrixCustomPrompt" class="input-field" placeholder="例如：武器图标、药水道具...">
           </div>
@@ -306,7 +327,12 @@
             </div>
           </div>
 
-          <button id="btnGenerateMatrix" class="btn btn-primary">✨ 生成矩阵</button>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnGenerateMatrix" class="btn btn-primary" style="flex: 1;">✨ 生成矩阵</button>
+            <button id="btnAdvancedMatrix" class="btn btn-secondary" style="width: auto; padding: 8px 16px;" title="查看和编辑最终提示词">
+              ⚙️ 高级
+            </button>
+          </div>
           <button id="btnAbortMatrix" class="btn btn-secondary" style="display: none; margin-top: 8px;">⏹️ 中止生成</button>
         </div>
 
@@ -413,6 +439,59 @@
     <div class="dialog-footer">
       <button id="btnCancelUpdate" class="btn btn-secondary" style="width: auto;">稍后再说</button>
       <button id="btnConfirmUpdate" class="btn btn-primary" style="width: auto;">立即更新</button>
+    </div>
+  </dialog>
+
+  <!-- Advanced Prompt Dialog -->
+  <dialog id="advancedPromptDialog" style="max-width: 700px; width: 90%;">
+    <h3 class="dialog-title">⚙️ 高级设置 - 编辑提示词</h3>
+    <div class="form-group" style="margin-top: 16px;">
+      <label class="form-label">最终提示词（可编辑）</label>
+      <textarea id="advancedPromptInput" class="input-field"
+        style="min-height: 300px; font-family: monospace; font-size: 0.85rem; line-height: 1.5;"
+        placeholder="提示词将在打开弹窗时自动生成..."></textarea>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+        这是发送给 AI 的完整提示词。你可以修改后点击"使用此提示词生成"。
+      </p>
+    </div>
+    <div class="dialog-footer">
+      <button id="btnCancelAdvanced" class="btn btn-secondary" style="width: auto;">取消</button>
+      <button id="btnResetAdvanced" class="btn btn-secondary" style="width: auto;">重置</button>
+      <button id="btnGenerateAdvanced" class="btn btn-primary" style="width: auto;">使用此提示词生成</button>
+    </div>
+  </dialog>
+
+  <!-- Custom Style Dialog -->
+  <dialog id="customStyleDialog" style="max-width: 500px; width: 90%;">
+    <h3 class="dialog-title">➕ 添加自定义风格</h3>
+    <div class="form-group" style="margin-top: 16px;">
+      <label class="form-label">风格名称</label>
+      <input type="text" id="customStyleName" class="input-field" placeholder="例如：赛博水墨">
+    </div>
+    <div class="form-group">
+      <label class="form-label">风格提示词 (英文)</label>
+      <textarea id="customStylePrompt" class="input-field"
+        style="min-height: 100px;"
+        placeholder="例如：cyberpunk style mixed with Chinese ink painting, neon colors, ethereal atmosphere"></textarea>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+        描述这个风格的视觉特征，使用英文逗号分隔关键词。
+      </p>
+    </div>
+    <div class="dialog-footer">
+      <button id="btnCancelCustomStyle" class="btn btn-secondary" style="width: auto;">取消</button>
+      <button id="btnSaveCustomStyle" class="btn btn-primary" style="width: auto;">保存风格</button>
+    </div>
+  </dialog>
+
+  <!-- Manage Styles Dialog -->
+  <dialog id="manageStylesDialog" style="max-width: 600px; width: 90%;">
+    <h3 class="dialog-title">🎭 管理自定义风格</h3>
+    <div id="customStylesList" style="margin-top: 16px; max-height: 300px; overflow-y: auto;">
+      <!-- 自定义风格列表将由 JS 渲染 -->
+    </div>
+    <div class="dialog-footer" style="margin-top: 16px;">
+      <button id="btnAddNewStyle" class="btn btn-secondary" style="width: auto;">➕ 添加新风格</button>
+      <button id="btnCloseManageStyles" class="btn btn-primary" style="width: auto;">完成</button>
     </div>
   </dialog>
 
