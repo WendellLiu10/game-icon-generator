@@ -381,17 +381,38 @@ async function sendGenerateRequest(apiKey, baseUrl, parts, resolution, logPrefix
   });
 
   console.log('  📤 [Gemini API] 请求体大小:', (requestBody.length / 1024).toFixed(2), 'KB');
-  console.log('  ⏳ [Gemini API] 发送请求中...（如果长时间无响应请检查网络）');
+
+  // 根据请求大小给出预估时间提示
+  const requestSizeMB = requestBody.length / 1024 / 1024;
+  const estimatedTime = Math.max(30, Math.ceil(requestSizeMB * 15)); // 估算：每 MB 约 15 秒
+  console.log(`  ⏳ [Gemini API] 发送请求中...（预计需要 ${estimatedTime} 秒，请求大小: ${requestSizeMB.toFixed(2)} MB）`);
+
+  if (requestSizeMB > 3) {
+    console.warn('  ⚠️ [Gemini API] 请求体较大，建议压缩参考图以提升响应速度');
+  }
 
   const fetchStartTime = Date.now();
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: requestBody,
+  const TIMEOUT_MS = 120000; // 120 秒超时
+
+  // 创建超时 Promise
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`请求超时（${TIMEOUT_MS / 1000} 秒）。参考图可能过大，请尝试：\n1. 压缩参考图到 2MB 以内\n2. 检查网络连接\n3. 稍后重试`));
+    }, TIMEOUT_MS);
   });
+
+  // 带超时的 fetch
+  const response = await Promise.race([
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: requestBody,
+    }),
+    timeoutPromise
+  ]);
   const fetchEndTime = Date.now();
 
   console.log(`  📥 [Gemini API] 收到响应，状态: ${response.status}，网络请求耗时: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}s`);
