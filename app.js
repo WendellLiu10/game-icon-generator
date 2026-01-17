@@ -6,7 +6,7 @@ import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js
 import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion, getLocalVersion } from './core/update-checker.js';
 import { initDB, saveHistoryItem, getAllHistory, clearAllHistory, trimHistory } from './core/history-db.js';
-import { handleSelectChange, restoreFromStorage, bindEvents, setupDialog } from './core/event-utils.js';
+import { handleSelectChange, restoreFromStorage } from './core/event-utils.js';
 
 // ============================================================================
 // 常量
