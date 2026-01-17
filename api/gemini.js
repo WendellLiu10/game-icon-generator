@@ -84,8 +84,186 @@ Requirements:
 - The {SUBJECT} should match the theme: {USER_PROMPT}
 - Ensure high quality and detail suitable for a game asset
 
-Output a single square image of the {SUBJECT} at {RESOLUTION}x{RESOLUTION} resolution.`
+Output a single square image of the {SUBJECT} at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // ============================================================================
+  // 扩展生成类型模板
+  // ============================================================================
+
+  // 角色立绘 (Character Portrait)
+  characterPortrait: `Create a game character portrait illustration.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Create a {POSE_TYPE} character portrait
+- The character should follow the visual style: {STYLE}
+- Character description: {USER_PROMPT}
+- Background: {BACKGROUND}
+- Ensure high quality illustration suitable for a game character card or profile
+- The character should have clear details, expressive features, and professional quality
+
+Output a single character portrait at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 角色立绘 (风格迁移)
+  characterPortraitStyle: `Create a game character portrait illustration, matching the EXACT visual style of the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Create a {POSE_TYPE} character portrait
+- Match the art style, color palette, line work, and level of detail from the reference image PRECISELY
+- Character description: {USER_PROMPT}
+- Background: {BACKGROUND}
+- Ensure the character matches the reference style while being a unique design
+
+Output a single character portrait at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 游戏场景 (Game Scene)
+  gameScene: `Create a game scene or background illustration.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- The scene should follow the visual style: {STYLE}
+- Scene description: {USER_PROMPT}
+- The scene should be suitable for a game background or environment
+- Include appropriate lighting, atmosphere, and depth
+- Ensure high quality suitable for game art
+
+Output a single game scene at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 游戏场景 (风格迁移)
+  gameSceneStyle: `Create a game scene or background illustration, matching the EXACT visual style of the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Match the art style, color palette, lighting, and atmosphere from the reference image PRECISELY
+- Scene description: {USER_PROMPT}
+- The scene should be suitable for a game background or environment
+- Ensure consistent style with the reference
+
+Output a single game scene at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // UI 模板 (UI Template)
+  uiTemplate: `Create a game UI template design.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- The UI should follow the visual style: {STYLE}
+- UI elements to include: {USER_PROMPT}
+- Include a cohesive set of UI elements: buttons, panels, frames, icons
+- Ensure clear visual hierarchy and professional game UI design
+- Background should be neutral to showcase the UI elements clearly
+
+Output a single UI template at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // UI 模板 (风格迁移)
+  uiTemplateStyle: `Create a game UI template design, matching the EXACT visual style of the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Match the art style, color scheme, and design language from the reference image PRECISELY
+- UI elements to include: {USER_PROMPT}
+- Include a cohesive set of UI elements: buttons, panels, frames, icons
+- Ensure the UI matches the reference style perfectly
+
+Output a single UI template at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 配色方案 (Color Palette)
+  colorPalette: `Create a color palette for a game project.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Visual theme/mood: {STYLE}
+- Color scheme purpose: {USER_PROMPT}
+- Display 5-7 harmonious colors as clear swatches in a row
+- Include: primary color, secondary colors, accent color, neutral tones
+- Each color swatch should be clearly visible and labeled with hex codes if possible
+- The palette should be cohesive and suitable for game UI and assets
+
+Output a single color palette image at {RESOLUTION}x{RESOLUTION} resolution.`,
+
+  // 配色方案 (风格迁移)
+  colorPaletteStyle: `Extract and create a color palette based on the reference image.
+
+Requirements:
+- The output image resolution should be {RESOLUTION}x{RESOLUTION} pixels
+- Extract the main colors from the reference image
+- Additional requirements: {USER_PROMPT}
+- Display 5-7 colors as clear swatches in a row
+- Include the dominant colors, supporting colors, and accent colors from the reference
+- Each color swatch should be clearly visible
+
+Output a single color palette image at {RESOLUTION}x{RESOLUTION} resolution.`
 };
+
+// 生成类型配置
+export const GENERATION_TYPE_CONFIG = {
+  icon: {
+    name: '图标',
+    defaultGrid: 3,
+    textTemplate: 'textModeGrid',
+    styleTemplate: 'styleModeGrid',
+    singleTextTemplate: 'textModeSingle',
+    singleStyleTemplate: 'styleModeSingle'
+  },
+  character: {
+    name: '角色立绘',
+    defaultGrid: 1,
+    textTemplate: 'characterPortrait',
+    styleTemplate: 'characterPortraitStyle',
+    defaults: { poseType: 'half-body', background: 'simple gradient or transparent' }
+  },
+  scene: {
+    name: '游戏画面',
+    defaultGrid: 1,
+    textTemplate: 'gameScene',
+    styleTemplate: 'gameSceneStyle'
+  },
+  uiTemplate: {
+    name: 'UI 模板',
+    defaultGrid: 1,
+    textTemplate: 'uiTemplate',
+    styleTemplate: 'uiTemplateStyle'
+  },
+  colorPalette: {
+    name: '配色方案',
+    defaultGrid: 1,
+    textTemplate: 'colorPalette',
+    styleTemplate: 'colorPaletteStyle'
+  }
+};
+
+/**
+ * 构建扩展类型的 Prompt
+ * @param {string} type - 生成类型 (character, scene, uiTemplate, colorPalette)
+ * @param {string} userPrompt - 用户描述
+ * @param {string} style - 风格描述
+ * @param {number} resolution - 分辨率
+ * @param {boolean} hasReference - 是否有参考图
+ * @param {Object} options - 额外选项
+ */
+export function buildExtendedPrompt(type, userPrompt, style, resolution, hasReference = false, options = {}) {
+  const config = GENERATION_TYPE_CONFIG[type];
+  if (!config) {
+    throw new Error(`Unknown generation type: ${type}`);
+  }
+
+  const templateKey = hasReference ? config.styleTemplate : config.textTemplate;
+  let template = PROMPT_TEMPLATES[templateKey];
+
+  if (!template) {
+    throw new Error(`Template not found: ${templateKey}`);
+  }
+
+  // 替换变量
+  template = template
+    .replace(/{RESOLUTION}/g, resolution.toString())
+    .replace(/{STYLE}/g, style || 'game asset style')
+    .replace(/{USER_PROMPT}/g, userPrompt)
+    .replace(/{POSE_TYPE}/g, options.poseType || config.defaults?.poseType || 'full-body')
+    .replace(/{BACKGROUND}/g, options.background || config.defaults?.background || 'simple background');
+
+  return template;
+}
 
 /**
  * 构建图标网格 Prompt（文字模式）

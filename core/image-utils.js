@@ -106,6 +106,37 @@ export async function createThumbnail(base64, maxSize = 128) {
 }
 
 /**
+ * 创建缩略图（返回纯 Base64，不含前缀）
+ * @param {string} base64 - 原始 Base64（不含前缀）
+ * @param {number} maxSize - 最大边长
+ * @returns {Promise<string>} - 缩略图 Base64（不含前缀）
+ */
+export async function createThumbnailFromBase64(base64, maxSize = 150) {
+  const img = await base64ToImage(base64);
+
+  let { width, height } = img;
+  if (width > height) {
+    if (width > maxSize) {
+      height = (height * maxSize) / width;
+      width = maxSize;
+    }
+  } else {
+    if (height > maxSize) {
+      width = (width * maxSize) / height;
+      height = maxSize;
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+}
+
+/**
  * 获取图片的 Data URL
  * @param {string} base64 - Base64 字符串
  * @param {string} mimeType - MIME 类型
@@ -147,34 +178,34 @@ export async function getImageSize(base64) {
 export async function sliceImageGrid(base64Image, rows = 3, cols = 3) {
   const img = await base64ToImage(base64Image);
   const { width, height } = img;
-  
+
   // 假设网格是均匀分布的，不考虑边距裁剪（让提示词控制边距）
   // 或者：如果提示词生成的图有外边框，这里可能需要切掉一点
   // 目前策略：简单的均分切割
-  
+
   const cellWidth = Math.floor(width / cols);
   const cellHeight = Math.floor(height / rows);
-  
+
   const slicedImages = [];
-  
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const canvas = document.createElement('canvas');
       canvas.width = cellWidth;
       canvas.height = cellHeight;
       const ctx = canvas.getContext('2d');
-      
+
       ctx.drawImage(
         img,
         c * cellWidth, r * cellHeight, cellWidth, cellHeight, // Source
         0, 0, cellWidth, cellHeight // Destination
       );
-      
+
       // 导出为 Base64 (不含前缀)
       const dataUrl = canvas.toDataURL('image/png');
       slicedImages.push(dataUrl.split(',')[1]);
     }
   }
-  
+
   return slicedImages;
 }

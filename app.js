@@ -6,6 +6,7 @@ import { generateIconGrid, generateIconGridWithReference } from './api/gemini.js
 import { fileToBase64, getDataUrl, isImageFile, sliceImageGrid, createThumbnail, resizeToIcon } from './core/image-utils.js';
 import { checkForUpdates, updateApp, saveCurrentVersion, getCurrentVersion, getLocalVersion } from './core/update-checker.js';
 import { initDB, saveHistoryItem, getAllHistory, clearAllHistory, trimHistory } from './core/history-db.js';
+import { handleSelectChange, restoreFromStorage, bindEvents, setupDialog } from './core/event-utils.js';
 
 // ============================================================================
 // 常量
@@ -129,25 +130,7 @@ function cacheDOM() {
 // 初始化
 // ============================================================================
 
-/**
- * 从 localStorage 恢复设置，支持验证和默认值
- * @param {string} key - localStorage 键名
- * @param {Array} allowedValues - 允许的值列表
- * @param {*} defaultValue - 默认值
- * @param {function} [parser] - 可选的值解析函数
- * @returns {*} 恢复的值或默认值
- */
-function restoreFromStorage(key, allowedValues, defaultValue, parser = null) {
-  const saved = localStorage.getItem(key);
-  if (!saved) return defaultValue;
-
-  const value = parser ? parser(saved) : saved;
-  if (allowedValues.includes(value)) {
-    return value;
-  }
-  localStorage.removeItem(key);
-  return defaultValue;
-}
+// restoreFromStorage 已从 event-utils.js 导入
 
 /**
  * 恢复所有状态到 state 对象
@@ -269,54 +252,26 @@ function bindEvents() {
     });
   }
 
-  // 下载尺寸选择
-  if (elements.downloadSizeSelect) {
-    elements.downloadSizeSelect.addEventListener('change', (e) => {
-      const newSize = e.target.value;
-      // 验证选择的值是否有效
-      if (ALLOWED_DOWNLOAD_SIZES.includes(newSize)) {
-        state.downloadSize = newSize;
-        localStorage.setItem('download_size', newSize);
-      } else {
-        // 如果选择了无效值，恢复之前的值
-        console.warn('无效的下载尺寸选择:', newSize);
-        elements.downloadSizeSelect.value = state.downloadSize;
-      }
-    });
-  }
+  // 下载尺寸选择 - 使用 handleSelectChange 简化
+  handleSelectChange(elements.downloadSizeSelect, {
+    allowedValues: ALLOWED_DOWNLOAD_SIZES,
+    state, stateProp: 'downloadSize', storageKey: 'download_size'
+  });
 
   // 生成分辨率选择
-  if (elements.generateResolutionSelect) {
-    elements.generateResolutionSelect.addEventListener('change', (e) => {
-      const newResolution = parseInt(e.target.value, 10);
-      // 验证选择的值是否有效
-      if ([1024, 2048, 4096].includes(newResolution)) {
-        state.generateResolution = newResolution;
-        localStorage.setItem('generate_resolution', newResolution.toString());
-      } else {
-        // 如果选择了无效值，恢复之前的值
-        console.warn('无效的生成分辨率选择:', newResolution);
-        elements.generateResolutionSelect.value = state.generateResolution.toString();
-      }
-    });
-  }
+  handleSelectChange(elements.generateResolutionSelect, {
+    allowedValues: [1024, 2048, 4096],
+    state, stateProp: 'generateResolution', storageKey: 'generate_resolution',
+    parser: v => parseInt(v, 10)
+  });
 
   // 网格大小选择
-  if (elements.gridSizeSelect) {
-    elements.gridSizeSelect.addEventListener('change', (e) => {
-      const newGridSize = parseInt(e.target.value, 10);
-      // 验证选择的值是否有效
-      if (ALLOWED_GRID_SIZES.includes(newGridSize)) {
-        state.gridSize = newGridSize;
-        localStorage.setItem('grid_size', newGridSize.toString());
-        updateUI();
-      } else {
-        // 如果选择了无效值，恢复之前的值
-        console.warn('无效的网格大小选择:', newGridSize);
-        elements.gridSizeSelect.value = state.gridSize.toString();
-      }
-    });
-  }
+  handleSelectChange(elements.gridSizeSelect, {
+    allowedValues: ALLOWED_GRID_SIZES,
+    state, stateProp: 'gridSize', storageKey: 'grid_size',
+    parser: v => parseInt(v, 10),
+    onValid: () => updateUI()
+  });
 
   // 下载
   if (elements.btnDownloadFull) {
@@ -425,165 +380,178 @@ async function processFile(file) {
   }
 }
 
+// ============================================================================
+// 生成相关辅助函数
+// ============================================================================
+
+/** 重置预览区域为加载状态 */
+function resetPreviewArea() {
+  elements.resultImage.style.display = 'none';
+  elements.placeholderContent.style.display = 'none';
+  elements.loader.style.display = 'block';
+  elements.previewArea.classList.remove('empty');
+  elements.slicedSection.style.display = 'none';
+}
+
+/** 显示生成错误 */
+function showGenerateError() {
+  elements.placeholderContent.style.display = 'block';
+  elements.previewArea.classList.add('empty');
+}
+
+/** 调用生成 API */
+async function callGenerateAPI() {
+  if (state.mode === 'text') {
+    return generateIconGrid(
+      state.apiKey, state.prompt, state.style, state.subject,
+      state.baseUrl || undefined, state.generateResolution, state.gridSize
+    );
+  }
+
+  if (!state.referenceImage) {
+    throw new Error('请先上传参考图片');
+  }
+  return generateIconGridWithReference(
+    state.apiKey, state.referenceImage, state.prompt, state.subject,
+    state.baseUrl || undefined, state.generateResolution, state.gridSize
+  );
+}
+
+/** 处理图片切片 */
+async function processSlices(image) {
+  if (state.gridSize === 1) {
+    return [image];
+  }
+  return sliceImageGrid(image, state.gridSize, state.gridSize);
+}
+
+// ============================================================================
+// 主生成函数
+// ============================================================================
+
 async function handleGenerate() {
   if (!state.apiKey) {
     elements.apiKeyDialog.showModal();
     return;
   }
 
-  // ========== 生成开始 - 输出当前状态 ==========
-  const generateStartTime = Date.now();
+  const startTime = Date.now();
   console.group('🎨 [图标生成] 开始生成');
-  console.log('⏰ 开始时间:', new Date(generateStartTime).toLocaleTimeString());
   console.log('📋 当前状态:', {
-    mode: state.mode,
-    prompt: state.prompt,
-    style: state.style,
-    gridSize: `${state.gridSize}x${state.gridSize}`,
-    resolution: state.generateResolution,
-    hasReferenceImage: !!state.referenceImage,
-    baseUrl: state.baseUrl || '默认 API'
+    mode: state.mode, prompt: state.prompt, style: state.style,
+    gridSize: `${state.gridSize}x${state.gridSize}`, resolution: state.generateResolution
   });
 
   state.isGenerating = true;
   updateUI();
-
-  // 重置预览区
-  elements.resultImage.style.display = 'none';
-  elements.placeholderContent.style.display = 'none';
-  elements.loader.style.display = 'block';
-  elements.previewArea.classList.remove('empty');
-  elements.slicedSection.style.display = 'none';
+  resetPreviewArea();
 
   try {
-    let image;
-    const apiStartTime = Date.now();
-    console.log('🌐 [API 调用] 开始请求 Gemini API...');
-
-    if (state.mode === 'text') {
-      image = await generateIconGrid(state.apiKey, state.prompt, state.style, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
-    } else {
-      if (!state.referenceImage) {
-        throw new Error('请先上传参考图片');
-      }
-      image = await generateIconGridWithReference(state.apiKey, state.referenceImage, state.prompt, state.subject, state.baseUrl || undefined, state.generateResolution, state.gridSize);
-    }
-
-    const apiEndTime = Date.now();
-    console.log(`✅ [API 调用] 完成，耗时: ${((apiEndTime - apiStartTime) / 1000).toFixed(2)}s`);
-    console.log(`📦 [API 调用] 返回图片大小: ${(image.length / 1024).toFixed(2)} KB (Base64)`);
-
+    // 调用 API
+    console.log('🌐 [API 调用] 开始请求...');
+    const image = await callGenerateAPI();
+    console.log(`✅ [API 调用] 完成，大小: ${(image.length / 1024).toFixed(2)} KB`);
     state.resultImage = image;
 
-    // 自动切片
-    const sliceStartTime = Date.now();
-    console.log('✂️ [切片] 开始切片处理...');
+    // 切片处理
+    console.log('✂️ [切片] 开始处理...');
     showToast('生成成功，正在切片...', false);
-
-    let slices = [];
-    if (state.gridSize === 1) {
-      // 1x1 模式，直接把整张图作为唯一的切片
-      slices = [image];
-    } else {
-      slices = await sliceImageGrid(image, state.gridSize, state.gridSize);
-    }
-
+    const slices = await processSlices(image);
     state.slices = slices;
-    const sliceEndTime = Date.now();
-    console.log(`✅ [切片] 完成，耗时: ${((sliceEndTime - sliceStartTime) / 1000).toFixed(2)}s，共 ${slices.length} 个切片`);
+    console.log(`✅ [切片] 完成，共 ${slices.length} 个`);
 
-    // 保存到历史
-    const historyStartTime = Date.now();
-    console.log('💾 [历史记录] 开始保存...');
+    // 保存历史
+    console.log('💾 [历史记录] 保存中...');
     await addToHistory({
-      resultImage: image,
-      slices: slices,
-      prompt: state.prompt,
-      style: state.style,
-      subject: state.subject,
-      mode: state.mode,
-      gridSize: state.gridSize
+      resultImage: image, slices, prompt: state.prompt,
+      style: state.style, subject: state.subject, mode: state.mode, gridSize: state.gridSize
     });
-    const historyEndTime = Date.now();
-    console.log(`✅ [历史记录] 保存完成，耗时: ${((historyEndTime - historyStartTime) / 1000).toFixed(2)}s`);
 
     displayResult(image, slices);
-
-    const totalTime = (Date.now() - generateStartTime) / 1000;
-    console.log(`🎉 [图标生成] 全部完成！总耗时: ${totalTime.toFixed(2)}s`);
-    console.groupEnd();
+    console.log(`🎉 完成！总耗时: ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
 
   } catch (error) {
-    const errorTime = (Date.now() - generateStartTime) / 1000;
-    console.error(`❌ [图标生成] 失败，已用时: ${errorTime.toFixed(2)}s`);
-    console.error('❌ [错误详情]:', error);
-    console.groupEnd();
+    console.error('❌ [错误]:', error);
     showToast(error.message, true);
-    elements.placeholderContent.style.display = 'block';
-    elements.previewArea.classList.add('empty');
+    showGenerateError();
   } finally {
+    console.groupEnd();
     state.isGenerating = false;
     elements.loader.style.display = 'none';
     updateUI();
   }
 }
 
-function displayResult(fullImageBase64, slices) {
-  // 显示大图
-  elements.resultImage.src = getDataUrl(fullImageBase64);
+
+// ============================================================================
+// SVG 图标常量
+// ============================================================================
+
+const ICONS = {
+  download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>`,
+  reference: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+    <path d="M2 2l7.586 7.586"></path>
+    <circle cx="11" cy="11" r="2"></circle>
+  </svg>`
+};
+
+/** 创建切片项元素 */
+function createSliceItem(sliceBase64, index) {
+  const item = document.createElement('div');
+  item.className = 'slice-item';
+  item.innerHTML = `
+    <img src="${getDataUrl(sliceBase64)}" loading="lazy">
+    <div class="slice-actions">
+      <button class="icon-btn download-btn" title="下载此图标">${ICONS.download}</button>
+      <button class="icon-btn reference-btn" title="设为参考图">${ICONS.reference}</button>
+    </div>`;
+
+  item.querySelector('.download-btn').onclick = (e) => {
+    e.stopPropagation();
+    downloadImage(sliceBase64, `icon-${index + 1}.png`);
+  };
+
+  item.querySelector('.reference-btn').onclick = (e) => {
+    e.stopPropagation();
+    setImageAsReference(sliceBase64);
+  };
+
+  return item;
+}
+
+/** 显示全图 */
+function displayFullImage(base64) {
+  elements.resultImage.src = getDataUrl(base64);
   elements.resultImage.style.display = 'block';
   elements.placeholderContent.style.display = 'none';
   elements.previewArea.classList.remove('empty');
   elements.btnDownloadFull.disabled = false;
+}
 
-  // 显示切片
+/** 显示切片网格 */
+function displaySlicesGrid(slices) {
   elements.slicedSection.style.display = 'block';
   elements.slicedGrid.innerHTML = '';
 
-  // 根据当前网格大小设置 CSS 类
   const gridClass = state.gridSize > 1 ? `grid-${state.gridSize}x${state.gridSize}` : '';
   elements.slicedGrid.className = gridClass ? `sliced-grid ${gridClass}` : 'sliced-grid';
 
-  slices.forEach((sliceBase64, index) => {
-    const item = document.createElement('div');
-    item.className = 'slice-item';
-
-    item.innerHTML = `
-      <img src="${getDataUrl(sliceBase64)}" loading="lazy">
-      <div class="slice-actions">
-        <button class="icon-btn download-btn" title="下载此图标">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-        </button>
-        <button class="icon-btn reference-btn" title="设为参考图">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
-            <path d="M2 2l7.586 7.586"></path>
-            <circle cx="11" cy="11" r="2"></circle>
-          </svg>
-        </button>
-      </div>
-    `;
-
-    // 下载按钮
-    item.querySelector('.download-btn').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await downloadImage(sliceBase64, `icon-${index + 1}.png`);
-    });
-
-    // 设为参考图按钮
-    item.querySelector('.reference-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      setImageAsReference(sliceBase64);
-    });
-
-    elements.slicedGrid.appendChild(item);
+  slices.forEach((base64, index) => {
+    elements.slicedGrid.appendChild(createSliceItem(base64, index));
   });
 }
+
+function displayResult(fullImageBase64, slices) {
+  displayFullImage(fullImageBase64);
+  displaySlicesGrid(slices);
+}
+
 
 async function handleDownloadAllSlices() {
   if (!state.slices.length) return;
@@ -668,10 +636,10 @@ async function loadHistory() {
   try {
     // 初始化 IndexedDB
     await initDB();
-    
+
     // 尝试从 IndexedDB 加载
     const items = await getAllHistory();
-    
+
     if (items.length > 0) {
       state.history = items;
       // 清理旧的 localStorage 数据（如果有的话）
@@ -702,7 +670,7 @@ async function loadHistory() {
     console.error('加载历史记录失败:', e);
     state.history = [];
   }
-  
+
   renderHistoryUI();
 }
 
@@ -719,7 +687,7 @@ async function handleClearHistory() {
     await clearAllHistory();
     // 清除 localStorage（如果有旧数据）
     localStorage.removeItem(HISTORY_STORAGE_KEY);
-    
+
     state.history = [];
     renderHistoryUI();
 
