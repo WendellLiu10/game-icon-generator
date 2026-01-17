@@ -9,8 +9,8 @@ import { createDBConnection, createCRUD, generateId } from './db-utils.js';
 // 常量定义
 // ============================================================================
 
-const DB_NAME = 'GameStyleExplorer';
-const DB_VERSION = 2;
+const DB_NAME = 'GameExplorations';
+const DB_VERSION = 1;
 const EXPLORATIONS_STORE = 'explorations';
 
 // ============================================================================
@@ -18,13 +18,6 @@ const EXPLORATIONS_STORE = 'explorations';
 // ============================================================================
 
 const getDB = createDBConnection(DB_NAME, DB_VERSION, (database) => {
-    // 创建素材存储（如果不存在）
-    if (!database.objectStoreNames.contains('assets')) {
-        const assetsStore = database.createObjectStore('assets', { keyPath: 'id' });
-        assetsStore.createIndex('category', 'category', { unique: false });
-        assetsStore.createIndex('createdAt', 'createdAt', { unique: false });
-    }
-
     // 创建探索方案存储
     if (!database.objectStoreNames.contains(EXPLORATIONS_STORE)) {
         const store = database.createObjectStore(EXPLORATIONS_STORE, { keyPath: 'id' });

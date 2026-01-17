@@ -31,6 +31,20 @@ import {
 import { generateIconGridWithReference } from './api/gemini.js';
 
 // ============================================================================
+// Toast 提示函数
+// ============================================================================
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.className = `toast show ${isError ? 'error' : ''}`;
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 3000);
+}
+
+// ============================================================================
 // 状态管理
 // ============================================================================
 
@@ -113,31 +127,70 @@ function cacheMatrixDOM() {
 let generator = null;
 
 export async function initMatrixApp() {
+    console.log('[Matrix] initMatrixApp 开始初始化');
+
     cacheMatrixDOM();
+    console.log('[Matrix] DOM 缓存完成, styleChips:', matrixElements.styleChips);
 
     // 从 localStorage 加载 API Key
     matrixState.apiKey = localStorage.getItem('gemini_api_key') || '';
     matrixState.baseUrl = localStorage.getItem('gemini_base_url') || '';
 
-    // 初始化数据库
-    await initAssetsDB();
-    await initExplorationDB();
+    // 先绑定事件（确保 UI 可交互）
+    bindMatrixEvents();
+    console.log('[Matrix] 事件绑定完成');
+
+    // 先渲染预设风格（不依赖数据库）
+    console.log('[Matrix] 准备渲染风格标签, PRESET_STYLES:', PRESET_STYLES);
+    console.log('[Matrix] PRESET_STYLES 数量:', PRESET_STYLES?.length);
+    renderStyleChips();
+    console.log('[Matrix] 风格标签渲染完成');
+
+    // 初始化数据库（可能失败，但不应阻止 UI 交互）
+    try {
+        console.log('[Matrix] 开始初始化 Assets 数据库...');
+        await initAssetsDB();
+        console.log('[Matrix] Assets 数据库初始化完成');
+    } catch (err) {
+        console.error('[Matrix] Assets 数据库初始化失败:', err);
+        showToast('素材数据库初始化失败', true);
+    }
+
+    try {
+        console.log('[Matrix] 开始初始化 Exploration 数据库...');
+        await initExplorationDB();
+        console.log('[Matrix] Exploration 数据库初始化完成');
+    } catch (err) {
+        console.error('[Matrix] Exploration 数据库初始化失败:', err);
+    }
 
     // 加载数据
-    await loadAssets();
-    await loadExplorations();
+    try {
+        await loadAssets();
+        await loadExplorations();
+        console.log('[Matrix] 数据加载完成');
+    } catch (err) {
+        console.error('[Matrix] 数据加载失败:', err);
+    }
 
-    // 渲染预设风格
-    renderStyleChips();
-
-    // 绑定事件
-    bindMatrixEvents();
+    console.log('[Matrix] initMatrixApp 初始化完成');
 }
 
 function bindMatrixEvents() {
+    console.log('[Matrix] bindMatrixEvents 开始绑定事件');
+
     // 素材上传
-    if (matrixElements.assetUploadInput) {
-        matrixElements.assetUploadInput.addEventListener('change', handleAssetUpload);
+    const uploadInput = matrixElements.assetUploadInput;
+    console.log('[Matrix] assetUploadInput 元素:', uploadInput);
+
+    if (uploadInput) {
+        uploadInput.addEventListener('change', (e) => {
+            console.log('[Matrix] change 事件触发!');
+            handleAssetUpload(e);
+        });
+        console.log('[Matrix] 已绑定 change 事件到 assetUploadInput');
+    } else {
+        console.error('[Matrix] 错误: assetUploadInput 元素不存在!');
     }
 
     // 分类切换
@@ -234,20 +287,58 @@ function renderAssetsGrid() {
 }
 
 async function handleAssetUpload(e) {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    console.log('[素材上传] handleAssetUpload 被调用');
 
-    for (const file of files) {
-        if (!file.type.startsWith('image/')) continue;
-        try {
-            await createAssetFromFile(file, matrixState.currentCategory === 'all' ? 'reference' : matrixState.currentCategory);
-        } catch (err) {
-            console.error('上传素材失败:', err);
+    try {
+        const files = Array.from(e.target.files);
+        console.log('[素材上传] 选择的文件数:', files.length);
+
+        if (files.length === 0) return;
+
+        // 过滤出图片文件
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        console.log('[素材上传] 图片文件数:', imageFiles.length);
+
+        if (imageFiles.length === 0) {
+            showToast('请选择图片文件', true);
+            e.target.value = '';
+            return;
         }
-    }
 
-    await loadAssets();
-    e.target.value = ''; // 重置 input
+        showToast(`正在上传 ${imageFiles.length} 个素材...`);
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const file of imageFiles) {
+            try {
+                console.log('[素材上传] 正在处理文件:', file.name);
+                await createAssetFromFile(file, matrixState.currentCategory === 'all' ? 'reference' : matrixState.currentCategory);
+                successCount++;
+                console.log('[素材上传] 文件处理成功:', file.name);
+            } catch (err) {
+                console.error('[素材上传] 上传素材失败:', err);
+                failCount++;
+            }
+        }
+
+        console.log('[素材上传] 刷新素材列表...');
+        await loadAssets();
+        e.target.value = ''; // 重置 input
+
+        // 显示结果
+        if (failCount === 0) {
+            showToast(`成功添加 ${successCount} 个素材`);
+        } else if (successCount === 0) {
+            showToast(`上传失败，请重试`, true);
+        } else {
+            showToast(`添加 ${successCount} 个成功，${failCount} 个失败`, true);
+        }
+    } catch (err) {
+        console.error('[素材上传] 意外错误:', err);
+        showToast(`上传出错: ${err.message}`, true);
+        e.target.value = '';
+    }
 }
 
 export function toggleAssetSelection(assetId) {
@@ -284,7 +375,19 @@ function switchCategory(category) {
 // ============================================================================
 
 function renderStyleChips() {
-    if (!matrixElements.styleChips) return;
+    console.log('[Matrix] renderStyleChips 被调用');
+    console.log('[Matrix] styleChips 容器:', matrixElements.styleChips);
+    console.log('[Matrix] PRESET_STYLES:', PRESET_STYLES);
+
+    if (!matrixElements.styleChips) {
+        console.error('[Matrix] styleChips 容器不存在!');
+        return;
+    }
+
+    if (!PRESET_STYLES || PRESET_STYLES.length === 0) {
+        console.error('[Matrix] PRESET_STYLES 为空!');
+        return;
+    }
 
     let html = '';
     PRESET_STYLES.forEach(style => {
@@ -298,7 +401,9 @@ function renderStyleChips() {
     `;
     });
 
+    console.log('[Matrix] 生成的 HTML:', html.substring(0, 200) + '...');
     matrixElements.styleChips.innerHTML = html;
+    console.log('[Matrix] styleChips 子元素数量:', matrixElements.styleChips.children.length);
     updateSelectionCounts();
 }
 
@@ -591,12 +696,43 @@ export async function exportExploration(id) {
 // 暴露给全局
 // ============================================================================
 
+// 清理所有数据库的全局函数
+async function clearAllDatabases() {
+    console.log('[Matrix] 开始清理所有数据库...');
+    try {
+        // 删除所有可能的数据库
+        const dbNames = ['GameStyleExplorer', 'GameExplorations', 'GameIconHistory'];
+        for (const name of dbNames) {
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = () => {
+                        console.log(`[Matrix] 数据库 ${name} 已删除`);
+                        resolve();
+                    };
+                    req.onerror = () => reject(req.error);
+                    req.onblocked = () => {
+                        console.warn(`[Matrix] 数据库 ${name} 删除被阻塞，正在等待...`);
+                    };
+                });
+            } catch (e) {
+                console.log(`[Matrix] 数据库 ${name} 不存在或删除失败:`, e);
+            }
+        }
+        console.log('[Matrix] 所有数据库清理完成，请刷新页面');
+        alert('数据库清理完成，请刷新页面');
+    } catch (err) {
+        console.error('[Matrix] 清理数据库失败:', err);
+    }
+}
+
 window.matrixApp = {
     toggleAssetSelection,
     deleteAsset: deleteAssetById,
     toggleStyleSelection,
     loadExploration,
-    exportExploration
+    exportExploration,
+    clearAllDatabases  // 暴露清理函数
 };
 
 export { matrixState };
