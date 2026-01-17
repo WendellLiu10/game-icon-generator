@@ -3,7 +3,7 @@
  * 负责素材的上传、存储、分类和管理
  */
 
-import { fileToBase64, createThumbnailFromBase64 } from './image-utils.js';
+import { fileToBase64, createThumbnailFromBase64, compressImageToSize } from './image-utils.js';
 import { createDBConnection, createCRUD, generateId } from './db-utils.js';
 
 // ============================================================================
@@ -160,7 +160,11 @@ export async function clearAllAssets() {
  * @returns {Promise<Object>}
  */
 export async function createAssetFromFile(file, category = 'reference') {
-  const imageBase64 = await fileToBase64(file);
+  let imageBase64 = await fileToBase64(file);
+
+  // 压缩到 3MB 以下
+  imageBase64 = await compressImageToSize(imageBase64, 3 * 1024 * 1024);
+
   const thumbnailBase64 = await createThumbnailFromBase64(imageBase64, 150);
 
   return addAsset({

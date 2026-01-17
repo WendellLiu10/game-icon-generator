@@ -169,6 +169,65 @@ export async function getImageSize(base64) {
 }
 
 /**
+ * 压缩图片到指定大小以下
+ * @param {string} base64 - 原始 Base64（不含前缀）
+ * @param {number} maxSizeBytes - 最大字节数（默认 3MB）
+ * @param {number} initialQuality - 初始质量（0-1）
+ * @returns {Promise<string>} - 压缩后的 Base64（不含前缀）
+ */
+export async function compressImageToSize(base64, maxSizeBytes = 3 * 1024 * 1024, initialQuality = 0.9) {
+  // 计算当前大小（Base64 编码约增加 33% 体积）
+  const currentSize = Math.ceil(base64.length * 0.75);
+  if (currentSize <= maxSizeBytes) {
+    return base64;
+  }
+
+  console.log(`  🗜️ [图片压缩] 原始大小: ${(currentSize / 1024 / 1024).toFixed(2)} MB，开始压缩...`);
+
+  const img = await base64ToImage(base64);
+  let quality = initialQuality;
+  let scale = 1;
+  let result = base64;
+
+  // 如果图片尺寸过大，先缩小尺寸
+  const maxDimension = 2048;
+  if (img.width > maxDimension || img.height > maxDimension) {
+    scale = Math.min(maxDimension / img.width, maxDimension / img.height);
+  }
+
+  // 循环压缩直到满足大小要求
+  while (true) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // 使用 JPEG 格式压缩（压缩率更高）
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    result = dataUrl.split(',')[1];
+    const resultSize = Math.ceil(result.length * 0.75);
+
+    if (resultSize <= maxSizeBytes) {
+      console.log(`  ✅ [图片压缩] 压缩完成: ${(resultSize / 1024 / 1024).toFixed(2)} MB (质量: ${(quality * 100).toFixed(0)}%, 缩放: ${(scale * 100).toFixed(0)}%)`);
+      return result;
+    }
+
+    // 降低质量或缩小尺寸
+    if (quality > 0.3) {
+      quality -= 0.1;
+    } else if (scale > 0.3) {
+      scale -= 0.1;
+      quality = 0.8; // 重置质量
+    } else {
+      // 无法继续压缩，返回当前结果
+      console.warn(`  ⚠️ [图片压缩] 已达到最小压缩限制，当前大小: ${(resultSize / 1024 / 1024).toFixed(2)} MB`);
+      return result;
+    }
+  }
+}
+
+/**
  * 将网格图切割成独立图标
  * @param {string} base64Image - 原图 Base64
  * @param {number} rows - 行数 (默认 3)
