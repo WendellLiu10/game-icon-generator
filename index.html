@@ -614,6 +614,17 @@
     </div>
   </dialog>
 
+  <!-- 画风迁移 - 历史记录选择弹窗 -->
+  <dialog id="transferHistoryDialog" style="max-width: 800px; width: 90%;">
+    <h3 class="dialog-title">📁 从历史记录选择</h3>
+    <div id="transferHistoryList" style="margin-top: 16px; max-height: 400px; overflow-y: auto;">
+      <!-- 历史记录列表将由 JS 渲染 -->
+    </div>
+    <div class="dialog-footer" style="margin-top: 16px;">
+      <button id="btnCancelTransferHistory" class="btn btn-secondary" style="width: auto;">取消</button>
+    </div>
+  </dialog>
+
   <!-- Toast -->
   <div id="toast" class="toast">
     <span>消息内容</span>

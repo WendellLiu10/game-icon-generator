@@ -6,6 +6,7 @@
 import { StyleTransferEngine } from './core/style-transfer-engine.js';
 import { saveTransferRecord, getAllTransferRecords, deleteTransferRecord } from './core/style-transfer-db.js';
 import { compressImageToSize, createThumbnail, getDataUrl } from './core/image-utils.js';
+import { getAllHistory } from './core/history-db.js';
 
 // ============================================================================
 // 状态管理
@@ -66,7 +67,12 @@ const elements = {
   resultsSection: null,
   resultsGrid: null,
   btnSaveToHistory: null,
-  btnDownloadAll: null
+  btnDownloadAll: null,
+
+  // 历史记录弹窗
+  transferHistoryDialog: null,
+  transferHistoryList: null,
+  btnCancelTransferHistory: null
 };
 
 // ============================================================================
@@ -124,6 +130,11 @@ function initElements() {
   elements.resultsGrid = document.getElementById('resultsGrid');
   elements.btnSaveToHistory = document.getElementById('btnSaveToHistory');
   elements.btnDownloadAll = document.getElementById('btnDownloadAll');
+
+  // 历史记录弹窗
+  elements.transferHistoryDialog = document.getElementById('transferHistoryDialog');
+  elements.transferHistoryList = document.getElementById('transferHistoryList');
+  elements.btnCancelTransferHistory = document.getElementById('btnCancelTransferHistory');
 }
 
 function loadConfig() {
@@ -197,6 +208,11 @@ function bindEvents() {
   elements.btnSaveToHistory.addEventListener('click', saveToHistory);
   elements.btnDownloadAll.addEventListener('click', downloadAllResults);
 
+  // 历史记录弹窗
+  elements.btnCancelTransferHistory.addEventListener('click', () => {
+    elements.transferHistoryDialog.close();
+  });
+
   // 监听跨页面事件（从其他页面添加目标图）
   window.addEventListener('addTargetImage', (e) => {
     const { base64, source, sourceId, gridSize } = e.detail;
@@ -262,13 +278,12 @@ function updateStyleImageUI() {
 }
 
 async function selectStyleFromHistory() {
-  // TODO: 实现从历史记录选择（需要与 app.js 集成）
-  showToast('此功能需要与历史记录模块集成', 'info');
+  await openHistoryDialog('style');
 }
 
-// ============================================================================
-// B图（目标图）处理
-// ============================================================================
+async function addTargetFromHistory() {
+  await openHistoryDialog('target');
+}
 
 async function handleTargetImagesUpload(e) {
   const files = Array.from(e.target.files);
@@ -354,9 +369,45 @@ function updateTargetGridUI() {
   }).join('');
 }
 
-async function addTargetFromHistory() {
-  // TODO: 实现从历史记录选择（需要与 app.js 集成）
-  showToast('此功能需要与历史记录模块集成', 'info');
+// ============================================================================
+// 历史记录选择
+// ============================================================================
+
+async function openHistoryDialog(mode) {
+  try {
+    const history = await getAllHistory();
+
+    if (!history || history.length === 0) {
+      showToast('暂无历史记录', 'info');
+      return;
+    }
+
+    renderHistoryList(history, mode);
+    elements.transferHistoryDialog.showModal();
+  } catch (error) {
+    console.error('❌ [画风迁移] 加载历史记录失败:', error);
+    showToast('加载历史记录失败', 'error');
+  }
+}
+
+function renderHistoryList(history, mode) {
+  const title = mode === 'style' ? '选择风格源图片' : '选择目标图片';
+  elements.transferHistoryDialog.querySelector('.dialog-title').textContent = `📁 ${title}`;
+
+  elements.transferHistoryList.innerHTML = history.map(item => {
+    const imgUrl = `data:image/png;base64,${item.thumbnail || item.resultImage}`;
+    const date = new Date(item.timestamp).toLocaleString('zh-CN');
+
+    return `
+      <div class="history-select-item" onclick="window.selectHistoryItem('${item.id}', '${mode}')">
+        <img src="${imgUrl}" alt="历史记录">
+        <div class="history-info">
+          <p class="history-prompt">${item.prompt || '无描述'}</p>
+          <p class="history-meta">${date} ${item.gridSize > 1 ? `· ${item.gridSize}×${item.gridSize}` : ''}</p>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // ============================================================================
@@ -570,6 +621,49 @@ function showToast(message, type = 'info') {
 // ============================================================================
 
 window.removeTargetImage = removeTargetImage;
+
+window.selectHistoryItem = async function(itemId, mode) {
+  try {
+    const history = await getAllHistory();
+    const item = history.find(h => h.id === itemId);
+
+    if (!item) {
+      showToast('历史记录不存在', 'error');
+      return;
+    }
+
+    const base64 = item.resultImage;
+    const thumbnail = item.thumbnail || base64;
+
+    if (mode === 'style') {
+      // 设置为风格源图片
+      state.styleImage = {
+        base64,
+        thumbnail,
+        source: 'history',
+        sourceId: itemId
+      };
+      updateStyleImageUI();
+      updateTransferButton();
+      showToast('已设置为风格源图片', 'success');
+    } else {
+      // 添加为目标图片
+      addTargetImage({
+        base64,
+        thumbnail,
+        source: 'history',
+        sourceId: itemId,
+        gridSize: item.gridSize || 1
+      });
+      showToast('已添加到目标图片', 'success');
+    }
+
+    elements.transferHistoryDialog.close();
+  } catch (error) {
+    console.error('❌ [画风迁移] 选择历史记录失败:', error);
+    showToast('选择失败', 'error');
+  }
+};
 
 window.downloadResult = function(index) {
   if (!state.currentResults || !state.currentResults[index]) return;
