@@ -1341,8 +1341,8 @@ dialog::backdrop {
     cursor: pointer;
 }
 
-/* Slider 样式 */
-.slider {
+/* Slider 样式（范围滑块） */
+input[type="range"].slider {
     width: 100%;
     height: 6px;
     border-radius: 3px;
@@ -1351,7 +1351,7 @@ dialog::backdrop {
     -webkit-appearance: none;
 }
 
-.slider::-webkit-slider-thumb {
+input[type="range"].slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 18px;
@@ -1361,7 +1361,7 @@ dialog::backdrop {
     cursor: pointer;
 }
 
-.slider::-moz-range-thumb {
+input[type="range"].slider::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
