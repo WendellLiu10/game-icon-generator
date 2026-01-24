@@ -252,7 +252,7 @@ function removeStyleImage() {
 
 function updateStyleImageUI() {
   if (state.styleImage) {
-    elements.styleImageDisplay.src = getDataUrl(state.styleImage.base64);
+    elements.styleImageDisplay.src = `data:image/png;base64,${state.styleImage.base64}`;
     elements.styleImagePreview.style.display = 'block';
     elements.styleImageUploadZone.style.display = 'none';
   } else {
@@ -342,13 +342,16 @@ function updateTargetGridUI() {
     return;
   }
 
-  elements.targetGrid.innerHTML = state.targetImages.map(img => `
-    <div class="target-item" data-id="${img.id}">
-      <img src="${getDataUrl(img.thumbnail)}" alt="目标图">
-      ${img.gridSize > 1 ? `<span class="grid-badge">${img.gridSize}×${img.gridSize}</span>` : ''}
-      <button class="btn-remove-target" onclick="window.removeTargetImage('${img.id}')">✕</button>
-    </div>
-  `).join('');
+  elements.targetGrid.innerHTML = state.targetImages.map(img => {
+    const imgDataUrl = `data:image/png;base64,${img.thumbnail}`;
+    return `
+      <div class="target-item" data-id="${img.id}">
+        <img src="${imgDataUrl}" alt="目标图">
+        ${img.gridSize > 1 ? `<span class="grid-badge">${img.gridSize}×${img.gridSize}</span>` : ''}
+        <button class="btn-remove-target" onclick="window.removeTargetImage('${img.id}')">✕</button>
+      </div>
+    `;
+  }).join('');
 }
 
 async function addTargetFromHistory() {
@@ -445,11 +448,12 @@ function displayResults(results) {
 
   elements.resultsGrid.innerHTML = results.map((result, index) => {
     const targetImage = state.targetImages[index];
+    const targetImgUrl = `data:image/png;base64,${targetImage.thumbnail}`;
 
     if (result.status === 'error') {
       return `
         <div class="result-item error">
-          <img src="${getDataUrl(targetImage.thumbnail)}" alt="原图">
+          <img src="${targetImgUrl}" alt="原图">
           <div class="error-overlay">
             <p>❌ 转换失败</p>
             <p style="font-size: 0.8rem;">${result.error}</p>
@@ -458,15 +462,16 @@ function displayResults(results) {
       `;
     }
 
+    const resultImgUrl = `data:image/png;base64,${result.thumbnail}`;
     return `
       <div class="result-item">
         <div class="result-comparison">
           <div class="result-before">
-            <img src="${getDataUrl(targetImage.thumbnail)}" alt="原图">
+            <img src="${targetImgUrl}" alt="原图">
             <span class="result-label">原图</span>
           </div>
           <div class="result-after">
-            <img src="${getDataUrl(result.thumbnail)}" alt="转换后">
+            <img src="${resultImgUrl}" alt="转换后">
             <span class="result-label">转换后</span>
           </div>
         </div>
