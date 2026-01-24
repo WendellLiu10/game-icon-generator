@@ -268,7 +268,11 @@ function removeStyleImage() {
 
 function updateStyleImageUI() {
   if (state.styleImage) {
-    elements.styleImageDisplay.src = `data:image/png;base64,${state.styleImage.base64}`;
+    // 检查是否已经包含 data URL 前缀
+    const imgUrl = state.styleImage.base64.startsWith('data:')
+      ? state.styleImage.base64
+      : `data:image/png;base64,${state.styleImage.base64}`;
+    elements.styleImageDisplay.src = imgUrl;
     elements.styleImagePreview.style.display = 'block';
     elements.styleImageUploadZone.style.display = 'none';
   } else {
@@ -358,7 +362,8 @@ function updateTargetGridUI() {
   }
 
   elements.targetGrid.innerHTML = state.targetImages.map(img => {
-    const imgDataUrl = `data:image/png;base64,${img.thumbnail}`;
+    // 检查是否已经包含 data URL 前缀
+    const imgDataUrl = img.thumbnail.startsWith('data:') ? img.thumbnail : `data:image/png;base64,${img.thumbnail}`;
     return `
       <div class="target-item" data-id="${img.id}">
         <img src="${imgDataUrl}" alt="目标图">
@@ -395,7 +400,9 @@ function renderHistoryList(history, mode) {
   elements.transferHistoryDialog.querySelector('.dialog-title').textContent = `📁 ${title}`;
 
   elements.transferHistoryList.innerHTML = history.map(item => {
-    const imgUrl = `data:image/png;base64,${item.thumbnail || item.resultImage}`;
+    const base64Data = item.thumbnail || item.resultImage;
+    // 检查是否已经包含 data URL 前缀
+    const imgUrl = base64Data.startsWith('data:') ? base64Data : `data:image/png;base64,${base64Data}`;
     const date = new Date(item.timestamp).toLocaleString('zh-CN');
 
     return `
@@ -499,7 +506,10 @@ function displayResults(results) {
 
   elements.resultsGrid.innerHTML = results.map((result, index) => {
     const targetImage = state.targetImages[index];
-    const targetImgUrl = `data:image/png;base64,${targetImage.thumbnail}`;
+    // 检查是否已经包含 data URL 前缀
+    const targetImgUrl = targetImage.thumbnail.startsWith('data:')
+      ? targetImage.thumbnail
+      : `data:image/png;base64,${targetImage.thumbnail}`;
 
     if (result.status === 'error') {
       return `
@@ -513,7 +523,9 @@ function displayResults(results) {
       `;
     }
 
-    const resultImgUrl = `data:image/png;base64,${result.thumbnail}`;
+    const resultImgUrl = result.thumbnail.startsWith('data:')
+      ? result.thumbnail
+      : `data:image/png;base64,${result.thumbnail}`;
     return `
       <div class="result-item">
         <div class="result-comparison">
