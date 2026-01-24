@@ -406,7 +406,7 @@ function renderHistoryList(history, mode) {
     const date = new Date(item.timestamp).toLocaleString('zh-CN');
 
     return `
-      <div class="history-select-item" onclick="window.selectHistoryItem('${item.id}', '${mode}')">
+      <div class="history-select-item" data-item-id="${item.id}" data-mode="${mode}">
         <img src="${imgUrl}" alt="历史记录">
         <div class="history-info">
           <p class="history-prompt">${item.prompt || '无描述'}</p>
@@ -415,6 +415,16 @@ function renderHistoryList(history, mode) {
       </div>
     `;
   }).join('');
+
+  // 添加事件委托
+  elements.transferHistoryList.onclick = async (e) => {
+    const item = e.target.closest('.history-select-item');
+    if (!item) return;
+
+    const itemId = item.dataset.itemId;
+    const mode = item.dataset.mode;
+    await window.selectHistoryItem(itemId, mode);
+  };
 }
 
 // ============================================================================
