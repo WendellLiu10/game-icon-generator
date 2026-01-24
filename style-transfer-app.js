@@ -46,6 +46,7 @@ const elements = {
   targetImagesInput: null,
   btnAddFromHistory: null,
   btnClearTargets: null,
+  targetDropZone: null,
   targetGrid: null,
   targetCount: null,
 
@@ -108,6 +109,7 @@ function initElements() {
   elements.targetImagesInput = document.getElementById('targetImagesInput');
   elements.btnAddFromHistory = document.getElementById('btnAddFromHistory');
   elements.btnClearTargets = document.getElementById('btnClearTargets');
+  elements.targetDropZone = document.getElementById('targetDropZone');
   elements.targetGrid = document.getElementById('targetGrid');
   elements.targetCount = document.getElementById('targetCount');
 
@@ -184,6 +186,42 @@ function bindEvents() {
   elements.targetImagesInput.addEventListener('change', handleTargetImagesUpload);
   elements.btnAddFromHistory.addEventListener('click', addTargetFromHistory);
   elements.btnClearTargets.addEventListener('click', clearAllTargets);
+
+  // B图拖拽上传
+  elements.targetDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    elements.targetDropZone.classList.add('drag-over');
+  });
+  elements.targetDropZone.addEventListener('dragleave', () => {
+    elements.targetDropZone.classList.remove('drag-over');
+  });
+  elements.targetDropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    elements.targetDropZone.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    for (const file of files) {
+      await addTargetImageFromFile(file);
+    }
+  });
+
+  // B图粘贴上传（Ctrl+V）
+  document.addEventListener('paste', async (e) => {
+    // 只在画风迁移页面激活时响应
+    if (!document.getElementById('pageTransfer').classList.contains('active')) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          await addTargetImageFromFile(file);
+          showToast('已从剪贴板添加图片', 'success');
+        }
+      }
+    }
+  });
 
   // 参数控制
   elements.strengthSlider.addEventListener('input', (e) => {

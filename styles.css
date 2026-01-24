@@ -1418,3 +1418,26 @@ input[type="range"].slider::-moz-range-thumb {
     color: var(--text-secondary);
     margin: 0;
 }
+
+/* 目标图片拖拽区域 */
+.target-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    margin-top: 16px;
+    background: var(--bg-secondary);
+    transition: all 0.2s;
+}
+
+.target-drop-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--bg-primary);
+    transform: scale(1.02);
+}
+
+.target-drop-zone p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9rem;
+}
