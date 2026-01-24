@@ -596,4 +596,114 @@ export async function testApiKey(apiKey, baseUrl) {
   }
 }
 
+/**
+ * 构建画风迁移提示词
+ * @param {Object} options - 转换参数
+ * @returns {string} - 提示词
+ */
+function buildStyleTransferPrompt(options) {
+  const { styleStrength = 80, preserveStructure = true, enhancePrompt = '' } = options;
+
+  let prompt = `Apply the visual style from the first image to the content of the second image.
+
+Requirements:
+- Transfer the art style, color palette, brush strokes, and visual characteristics from image 1 to image 2
+- Style transfer strength: ${styleStrength}%`;
+
+  if (preserveStructure) {
+    prompt += `\n- IMPORTANT: Preserve the original composition, layout, and main subject of image 2`;
+  }
+
+  if (enhancePrompt) {
+    prompt += `\n- Additional style guidance: ${enhancePrompt}`;
+  }
+
+  prompt += `\n- Output a single image with the transferred style
+- Maintain high quality and detail`;
+
+  return prompt;
+}
+
+/**
+ * 画风迁移：将目标图转换为参考图的风格
+ * @param {string} apiKey - API Key
+ * @param {string} styleImageBase64 - A图（风格源）
+ * @param {string} targetImageBase64 - B图（转换目标）
+ * @param {Object} options - 转换参数
+ * @returns {Promise<string>} 转换后的图像 Base64
+ */
+export async function generateStyleTransfer(
+  apiKey,
+  styleImageBase64,
+  targetImageBase64,
+  options = {}
+) {
+  const {
+    styleStrength = 80,
+    preserveStructure = true,
+    enhancePrompt = '',
+    resolution = 1024,
+    baseUrl = ''
+  } = options;
+
+  // 构建提示词
+  const prompt = buildStyleTransferPrompt({
+    styleStrength,
+    preserveStructure,
+    enhancePrompt
+  });
+
+  // 双图输入
+  const parts = [
+    { inlineData: { mimeType: 'image/png', data: styleImageBase64 } },
+    { inlineData: { mimeType: 'image/png', data: targetImageBase64 } },
+    { text: prompt }
+  ];
+
+  return sendGenerateRequest(
+    apiKey,
+    baseUrl || CONFIG.baseUrl,
+    parts,
+    resolution,
+    '1:1',
+    '画风迁移'
+  );
+}
+
+/**
+ * 网格图画风迁移（直接转换整个网格）
+ * @param {string} apiKey - API Key
+ * @param {string} styleImageBase64 - A图（风格源）
+ * @param {string} targetGridBase64 - B图（网格图）
+ * @param {number} gridSize - 网格大小
+ * @param {Object} options - 转换参数
+ * @returns {Promise<string>} 转换后的图像 Base64
+ */
+export async function generateStyleTransferGrid(
+  apiKey,
+  styleImageBase64,
+  targetGridBase64,
+  gridSize,
+  options = {}
+) {
+  const prompt = buildStyleTransferPrompt(options) +
+    `\n- The target image is a ${gridSize}x${gridSize} grid layout
+- Preserve the grid structure and apply style to each cell uniformly`;
+
+  const parts = [
+    { inlineData: { mimeType: 'image/png', data: styleImageBase64 } },
+    { inlineData: { mimeType: 'image/png', data: targetGridBase64 } },
+    { text: prompt }
+  ];
+
+  return sendGenerateRequest(
+    apiKey,
+    options.baseUrl || CONFIG.baseUrl,
+    parts,
+    options.resolution || 1024,
+    '1:1',
+    '网格画风迁移'
+  );
+}
+
 export { CONFIG };

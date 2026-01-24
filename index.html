@@ -23,6 +23,7 @@
     <div class="main-nav">
       <button class="nav-tab active" data-page="single">🖼️ 单图生成</button>
       <button class="nav-tab" data-page="matrix">🔲 风格矩阵</button>
+      <button class="nav-tab" data-page="transfer">🎨 画风迁移</button>
       <button class="nav-tab" data-page="explorations">📁 探索方案</button>
     </div>
 
@@ -401,6 +402,124 @@
     </div>
   </div><!-- end pageExplorations -->
 
+  <!-- 画风迁移页面 -->
+  <div id="pageTransfer" class="page-view">
+    <div class="main-container">
+
+      <!-- 左侧控制区 -->
+      <aside class="control-panel">
+
+        <!-- A图（风格源） -->
+        <div class="card">
+          <h3>风格源图片 (A图)</h3>
+          <div id="styleImagePreview" class="image-preview-zone" style="display: none;">
+            <img id="styleImageDisplay" src="" alt="风格源">
+            <button id="btnRemoveStyleImage" class="btn-remove">✕</button>
+          </div>
+          <div id="styleImageUploadZone" class="upload-zone">
+            <div class="upload-icon">🖼️</div>
+            <p>点击或拖拽上传风格源图片</p>
+            <input type="file" id="styleImageInput" accept="image/*" style="display: none;">
+          </div>
+          <div class="button-group" style="margin-top: 12px;">
+            <button id="btnSelectStyleFromHistory" class="btn btn-secondary">从历史选择</button>
+          </div>
+        </div>
+
+        <!-- 转换参数 -->
+        <div class="card">
+          <h3>转换参数</h3>
+
+          <div class="form-group">
+            <label class="form-label">风格强度: <span id="strengthValue">80</span>%</label>
+            <input type="range" id="strengthSlider" class="slider" min="0" max="100" value="80" step="5">
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+              数值越高，风格迁移越强烈
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="preserveCheck" checked>
+              保留内容结构
+            </label>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+              保持目标图的构图和主体不变
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">风格描述增强（可选）</label>
+            <textarea id="enhanceInput" class="input-field" rows="3"
+              placeholder="例如：更强调色彩对比、增加细节..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">生成分辨率</label>
+            <select id="transferResolutionSelect" class="input-field">
+              <option value="1024">1K (1024 × 1024)</option>
+              <option value="2048">2K (2048 × 2048)</option>
+              <option value="4096">4K (4096 × 4096)</option>
+            </select>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- 右侧内容区 -->
+      <main class="content-area">
+
+        <!-- B图列表 -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3>目标图片 (B图) - 已选 <span id="targetCount">0</span> 张</h3>
+            <button id="btnClearTargets" class="btn btn-secondary" style="width: auto; padding: 6px 12px;">清空</button>
+          </div>
+
+          <div class="button-group">
+            <button id="btnUploadTargets" class="btn btn-secondary">📤 上传图片</button>
+            <button id="btnAddFromHistory" class="btn btn-secondary">📁 从历史添加</button>
+          </div>
+          <input type="file" id="targetImagesInput" accept="image/*" multiple style="display: none;">
+
+          <div id="targetGrid" class="target-grid" style="margin-top: 16px;">
+            <!-- 目标图片网格将由 JS 渲染 -->
+          </div>
+        </div>
+
+        <!-- 转换按钮 -->
+        <button id="btnStartTransfer" class="btn btn-primary" disabled>
+          开始转换
+        </button>
+
+        <!-- 进度显示 -->
+        <div id="transferProgress" class="progress-section" style="display: none;">
+          <div class="progress-bar">
+            <div id="transferProgressBar" class="progress-fill"></div>
+          </div>
+          <p id="transferProgressText" class="progress-text">正在转换 0/0...</p>
+          <button id="btnStopTransfer" class="btn btn-secondary" style="width: auto; margin-top: 8px;">停止转换</button>
+        </div>
+
+        <!-- 转换结果 -->
+        <div id="resultsSection" class="card" style="display: none; margin-top: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3>转换结果</h3>
+            <div class="button-group" style="margin: 0;">
+              <button id="btnSaveToHistory" class="btn btn-secondary" style="width: auto; padding: 6px 12px;">保存到历史</button>
+              <button id="btnDownloadAll" class="btn btn-secondary" style="width: auto; padding: 6px 12px;">下载全部</button>
+            </div>
+          </div>
+          <div id="resultsGrid" class="results-grid">
+            <!-- 转换结果将由 JS 渲染 -->
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+  </div><!-- end pageTransfer -->
+
   <!-- API Key Modal -->
   <dialog id="apiKeyDialog">
     <h3 class="dialog-title">API 设置</h3>
@@ -527,6 +646,16 @@
           } else if (window.matrixAppModule) {
             // 每次切换回来时同步最新的 API 设置
             window.matrixAppModule.refreshApiSettings();
+          }
+        }
+
+        // 首次切换到画风迁移页面时初始化
+        if (page === 'transfer') {
+          if (!window.styleTransferAppInitialized) {
+            import('./style-transfer-app.js').then(mod => {
+              mod.initStyleTransferApp();
+              window.styleTransferAppInitialized = true;
+            });
           }
         }
 
